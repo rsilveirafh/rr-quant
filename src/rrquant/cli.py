@@ -12,7 +12,7 @@ import datetime as dt
 import webbrowser
 from pathlib import Path
 
-from . import collect, report
+from . import analyze, collect, report
 
 RAIZ = Path(__file__).resolve().parents[2]
 SAIDA = RAIZ / "output" / "dashboard.html"
@@ -38,13 +38,22 @@ def main(argv: list[str] | None = None) -> int:
     cotacoes = collect.coletar(periodo=args.periodo)
     blocos = collect.por_bloco(cotacoes)
 
+    print("Analisando (regime, cadeia de correlação, probabilidades históricas)...")
+    analise = analyze.analisar(cotacoes)
+
     datas = sorted({c.data for c in cotacoes if c.data})
     data_dados = datas[-1] if datas else None
     gerado_em = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
 
-    html = report.gerar_html(blocos, gerado_em=gerado_em, data_dados=data_dados)
+    html = report.gerar_html(blocos, analise, gerado_em=gerado_em, data_dados=data_dados)
     SAIDA.parent.mkdir(parents=True, exist_ok=True)
     SAIDA.write_text(html, encoding="utf-8")
+
+    print(f"\n  === LEITURA: {analise.regime_rotulo} ({analise.amplitude}) ===")
+    for b in analise.regime_bullets:
+        print(f"    - {b}")
+    for p in analise.probs:
+        print(f"    ~ {p.descricao}: {p.p_cond:.0f}% (base {p.base:.0f}%, {p.lift:+.0f}pp, n={p.n})")
 
     ok = sum(1 for c in cotacoes if c.ok)
     _resumo_terminal(blocos)

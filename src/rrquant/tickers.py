@@ -1,28 +1,28 @@
-"""Catalogo de tickers da varredura diaria.
+"""Catálogo de tickers da varredura diária.
 
-Organizado na mesma ordem em que a Rebecca Parriao passa os mercados
-(ver ../../docs/metodo-rebecca-parriao.md). Cada bloco e uma lista de
-(ticker_yfinance, nome_de_exibicao). So os ativos recorrentes (freq >= 4/6)
-entram no snapshot padrao; os ocasionais ficam comentados p/ ligar depois.
+Organizado na mesma ordem em que a leitura pré-mercado passa os mercados
+(ver ../../docs/metodo-rebecca-parriao.md). Cada bloco é uma lista de
+(ticker_yfinance, nome_de_exibição). Só os ativos recorrentes entram no
+snapshot padrão; os ocasionais ficam comentados p/ ligar depois.
 """
 
-# Blocos na ordem da varredura. dict preserva ordem de insercao (py3.7+).
+# Blocos na ordem da varredura. dict preserva ordem de inserção (py3.7+).
 BLOCOS: dict[str, list[tuple[str, str]]] = {
-    "Asia / Oceania": [
-        ("^N225", "Nikkei (Japao)"),
-        ("^AXJO", "ASX (Australia)"),
+    "Ásia / Oceania": [
+        ("^N225", "Nikkei (Japão)"),
+        ("^AXJO", "ASX (Austrália)"),
         ("000001.SS", "Shanghai"),
         ("^HSI", "Hang Seng (HK)"),
         ("^KS11", "Kospi (Coreia)"),
-        ("^BSESN", "Sensex (India)"),
+        ("^BSESN", "Sensex (Índia)"),
     ],
     "Europa": [
         ("^GDAXI", "DAX (Alemanha)"),
-        ("^FCHI", "CAC (Franca)"),
+        ("^FCHI", "CAC (França)"),
         ("^FTSE", "FTSE (Reino Unido)"),
-        ("FTSEMIB.MI", "FTSE MIB (Italia)"),
+        ("FTSEMIB.MI", "FTSE MIB (Itália)"),
         ("^IBEX", "Ibex (Espanha)"),
-        ("^SSMI", "SMI (Suica)"),
+        ("^SSMI", "SMI (Suíça)"),
         ("^STOXX50E", "Eurostoxx 50"),
     ],
     "EUA": [
@@ -36,26 +36,26 @@ BLOCOS: dict[str, list[tuple[str, str]]] = {
         ("EWZ", "EWZ (Ibov dolarizado, NY)"),
     ],
     "Commodities": [
-        ("BZ=F", "Petroleo Brent"),
-        ("CL=F", "Petroleo WTI"),
+        ("BZ=F", "Petróleo Brent"),
+        ("CL=F", "Petróleo WTI"),
         ("GC=F", "Ouro"),
         ("SI=F", "Prata"),
         ("HG=F", "Cobre"),
         ("PL=F", "Platina"),
-        ("PA=F", "Paladio"),
-        # ("NG=F", "Gas natural"),   # 1/6
-        # ("KC=F", "Cafe (contrato C)"),  # 1/6
+        ("PA=F", "Paládio"),
+        # ("NG=F", "Gás natural"),        # 1/6
+        # ("KC=F", "Café (contrato C)"),  # 1/6
     ],
-    "Cambio": [
+    "Câmbio": [
         ("BRL=X", "USD/BRL (real)"),
-        ("DX-Y.NYB", "DXY (dolar index)"),
+        ("DX-Y.NYB", "DXY (dólar index)"),
         ("EURUSD=X", "EUR/USD"),
         ("GBPUSD=X", "GBP/USD (libra)"),
         ("JPY=X", "USD/JPY (iene)"),
         ("CHF=X", "USD/CHF (franco)"),
         ("ZAR=X", "USD/ZAR (rand)"),
         ("MXN=X", "USD/MXN (peso)"),
-        ("AUDUSD=X", "AUD/USD (dolar aus.)"),
+        ("AUDUSD=X", "AUD/USD (dólar aus.)"),
     ],
     "Renda fixa / Volatilidade": [
         ("^FVX", "Treasury 5 anos"),
@@ -64,7 +64,7 @@ BLOCOS: dict[str, list[tuple[str, str]]] = {
         ("^VIX", "VIX (vol. S&P)"),
         ("^VXN", "VXN (vol. Nasdaq)"),
     ],
-    "Acoes / eventos": [
+    "Ações / eventos": [
         ("PETR4.SA", "Petrobras"),
         ("VALE3.SA", "Vale"),
         ("NVDA", "Nvidia"),
@@ -74,9 +74,12 @@ BLOCOS: dict[str, list[tuple[str, str]]] = {
     ],
 }
 
-# Ativos onde "alta e ruim" (juros/volatilidade/USD-BRL): a variacao positiva
-# nao e necessariamente boa. So afeta rotulo de contexto, nao a cor.
+# Ativos onde "alta é ruim" p/ risco (juros/volatilidade/USD-BRL): variação
+# positiva costuma indicar aversão a risco. Afeta só o rótulo de contexto.
 INVERSOS = {"^FVX", "^TNX", "^TYX", "^VIX", "^VXN", "BRL=X"}
+
+# Blocos de renda variável (bolsas) — usados no cálculo de regime/amplitude.
+BLOCOS_BOLSA = ["Ásia / Oceania", "Europa", "EUA", "Brasil"]
 
 
 def todos_os_tickers() -> list[str]:

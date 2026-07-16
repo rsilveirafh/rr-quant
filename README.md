@@ -79,8 +79,17 @@ variação via yfinance), `report.py` (HTML), `cli.py` (entrada).
 - ✅ **6 dias de leitura pré-mercado transcritos** + método consolidado em
   `docs/metodo-rebecca-parriao.md` (achados: **não cobre cripto**, técnico começa pela
   curva de **DI**, rotina abre por news+balanços+agenda).
-- ✅ **Frente 1 — POC do snapshot diário funcionando**: coleta 46 ativos (índices
-  mundiais, commodities, câmbio, juros, VIX/VXN, ações) via yfinance e gera um dashboard
-  HTML agrupado por bloco, com variação do dia e cores de alta/baixa. Roda com dados EOD.
-- ⏳ Próximo: enriquecer (macro via FRED/BCB, CME FedWatch) e/ou frente 2 (extração das
-  transcrições).
+- ✅ **Frente 1 — snapshot diário**: coleta 46 ativos (índices mundiais, commodities,
+  câmbio, juros, VIX/VXN, ações) via yfinance e gera dashboard HTML por bloco com variação
+  do dia. Roda com dados EOD.
+- ✅ **Camada de leitura (`analyze.py`)** — interpreta os números e mostra o *porquê*:
+  - **Regime do dia** (risk-on / risk-off / misto) por volatilidade + amplitude das bolsas
+    + ativos de proteção.
+  - **Cadeia de correlação** (petróleo→Petrobras, metais→Vale, juros global→risco,
+    DXY→real/emergentes) com leitura de cada elo.
+  - **Probabilidades condicionais históricas** (2 anos): ex. "quando a Ásia/Europa/S&P/EWZ
+    sobe, o Ibov sobe em X% dos dias" com taxa-base e lift.
+  - **Correlações-chave** (Ibov×Dow/S&P/EWZ/Nikkei/DXY, Petrobras×Brent, Vale×Cobre).
+  - Estatísticas rotuladas como **co-movimento histórico, não previsão**.
+- ⏳ Próximo: macro via FRED/BCB + CME FedWatch; variação overnight (futuros); frente 2
+  (extração das transcrições).
