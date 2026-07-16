@@ -28,6 +28,7 @@ class Indicador:
     unidade: str
     data: str | None = None
     extra: str = ""  # ex.: "acum. 12m", "YoY"
+    porque: str = ""  # por que este indicador importa (preenchido de porques.MACRO)
 
     @property
     def ok(self) -> bool:
@@ -138,6 +139,11 @@ def coletar_macro() -> Macro:
         _bcb_nivel(433, "IPCA", "%", "mês"),
         _bcb_nivel(7478, "IPCA-15", "%", "mês"),
     ]
+
+    # anexa o "porquê" de cada indicador
+    from .porques import MACRO as _PQ
+    for i in m.eua + m.brasil:
+        i.porque = _PQ.get(i.nome, "")
 
     m.ok = any(i.ok for i in m.eua) or any(i.ok for i in m.brasil)
 

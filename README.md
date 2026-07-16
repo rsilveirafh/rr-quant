@@ -98,5 +98,12 @@ variação via yfinance), `report.py` (HTML), `cli.py` (entrada).
   - **FRED** (EUA): CPI cheio/núcleo, PPI, desemprego, jobless claims, Fed funds.
   - **BCB SGS** (Brasil): Selic meta, CDI, IPCA (12m/mês), IPCA-15.
   - **Juro real** (Selic vs IPCA 12m) e leitura que fecha o elo inflação→juros da cadeia.
-- ⏳ Próximo: CME FedWatch (prob. de juros); variação overnight (futuros); curva DI completa
-  (B3); frente 2 (extração das transcrições).
+- ✅ **"O porquê" de cada coisa (`porques.py`)** — base de conhecimento conceitual (não
+  dado inventado) explicando a **importância** de cada indicador, commodity e bloco.
+  Read-through de commodities agora em **3 estados** (alta / de lado / queda) — trata o
+  "por que o Brent está estável", não só alta/baixa.
+- ✅ **Visual vibrante + modo daltônico** — cores por bloco; toda variação é redundante
+  (cor + seta ▲▼ + sinal +/−), nunca só cor. Botão alterna paleta colorblind-safe
+  (azul/laranja + Okabe-Ito), persistida em localStorage.
+- ⏳ Próximo: alimentar dados p/ **testar o dia seguinte** (modelo preditivo sobre a cadeia
+  causal já mapeada); CME FedWatch; variação overnight; curva DI (B3); frente 2.

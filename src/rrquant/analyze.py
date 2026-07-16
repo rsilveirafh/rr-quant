@@ -72,7 +72,8 @@ class Prob:
 class Passo:
     titulo: str
     numero: str            # variação de hoje formatada
-    leitura: str           # interpretação
+    leitura: str           # interpretação do estado de hoje
+    porque: str = ""       # importância / mecanismo (por que isso importa)
 
 
 @dataclass
@@ -93,12 +94,18 @@ class Analise:
 # ---------- helpers ----------
 
 def _dir(v: float | None, forte: float = 1.0) -> str:
+    """Frase standalone: 'em alta' / 'em forte queda' / 'de lado' / 'sem dado'."""
     if v is None:
         return "sem dado"
     if abs(v) < 0.1:
-        return "estável"
+        return "de lado"
     intens = "forte " if abs(v) >= forte else ""
-    return f"{intens}alta" if v > 0 else f"{intens}queda"
+    return f"em {intens}alta" if v > 0 else f"em {intens}queda"
+
+
+def _pct(v: float) -> str:
+    """Variação formatada em pt-BR: '+1,23%' / '-0,45%'."""
+    return f"{v:+.2f}%".replace(".", ",")
 
 
 def _idx(cotacoes: list[Cotacao]) -> dict[str, Cotacao]:
@@ -243,20 +250,26 @@ def _cadeia(analise: Analise, idx: dict[str, Cotacao], rets) -> None:
     if brent is not None:
         coerente = (petr is not None and (brent > 0) == (petr > 0))
         leitura = (
-            f"Brent em {_dir(brent)}; Petrobras costuma acompanhar{corr_txt(c_pb)}. "
-            + (f"Hoje Petrobras em {_dir(petr)} — {'coerente' if coerente else 'divergindo'} com o petróleo."
+            f"Brent {_dir(brent)}; Petrobras costuma acompanhar{corr_txt(c_pb)}. "
+            + (f"Hoje Petrobras {_dir(petr)} — {'coerente' if coerente else 'divergindo'} com o petróleo."
                if petr is not None else "Petrobras sem dado.")
         )
-        analise.cadeia.append(Passo("Petróleo → Petrobras", f"Brent {brent:+.2f}%", leitura))
+        analise.cadeia.append(Passo(
+            "Petróleo → Petrobras", f"Brent {_pct(brent)}", leitura,
+            porque="Petrobras é um dos maiores pesos do Ibovespa e segue o petróleo; via "
+                   "combustível, o Brent ainda mexe na inflação."))
 
     # 2. Minério/cobre → Vale
     if cobre is not None:
         leitura = (
-            f"Cobre ('Dr. Copper', termômetro de crescimento) em {_dir(cobre)}; "
+            f"Cobre ('Dr. Copper', termômetro de crescimento) {_dir(cobre)}; "
             f"puxa a leitura de Vale{corr_txt(c_vc)}. "
-            + (f"Vale hoje em {_dir(vale)}." if vale is not None else "Vale sem dado.")
+            + (f"Vale hoje {_dir(vale)}." if vale is not None else "Vale sem dado.")
         )
-        analise.cadeia.append(Passo("Metais → Vale", f"Cobre {cobre:+.2f}%", leitura))
+        analise.cadeia.append(Passo(
+            "Metais → Vale", f"Cobre {_pct(cobre)}", leitura,
+            porque="Vale é o maior peso do Ibovespa; sua receita vem de minério/metais "
+                   "atrelados ao crescimento global (sobretudo China)."))
 
     # 3. Inflação → juros (Brasil), com números reais do macro
     if analise.macro and analise.macro.ok:
@@ -275,29 +288,37 @@ def _cadeia(analise: Analise, idx: dict[str, Cotacao], rets) -> None:
                 + " Juro real alto sustenta o real e atrai renda fixa, mas encarece "
                 "o capital e pesa na bolsa."
             )
-            analise.cadeia.append(
-                Passo("Inflação → juros (BR)", f"Selic {_c(selic)}%", leitura))
+            analise.cadeia.append(Passo(
+                "Inflação → juros (BR)", f"Selic {_c(selic)}%", leitura,
+                porque="A Selic é o principal fator da leitura de índice e dólar: define o "
+                       "custo do dinheiro e o fluxo entre bolsa e renda fixa."))
 
     # 4. Juros global → risco
     if y10 is not None:
         leitura = (
-            f"Treasury 10a com yield em {_dir(y10)}. "
+            f"Treasury 10a com yield {_dir(y10)}. "
             + ("Juro global subindo encarece o dinheiro e pressiona bolsas/emergentes."
                if y10 > 0 else
                "Juro global cedendo tende a aliviar ativos de risco e favorecer o Ibov.")
         )
-        analise.cadeia.append(Passo("Juros global → risco", f"10a {y10:+.2f}%", leitura))
+        analise.cadeia.append(Passo(
+            "Juros global → risco", f"10a {_pct(y10)}", leitura,
+            porque="O Treasury de 10 anos é o retorno 'sem risco' de referência do mundo; "
+                   "quando sobe, capital sai de ativos de risco e de emergentes."))
 
     # 4. DXY → real / emergentes
     if dxy is not None:
         leitura = (
-            f"DXY (dólar no mundo) em {_dir(dxy)}{corr_txt(c_bd)}. "
+            f"DXY (dólar no mundo) {_dir(dxy)}{corr_txt(c_bd)}. "
             + ("Dólar forte lá fora pressiona emergentes e o real — vento contra o Ibov."
                if dxy > 0 else
                "Dólar fraco lá fora costuma beneficiar emergentes e o real — vento a favor.")
-            + (f" USD/BRL hoje em {_dir(usdbrl)}." if usdbrl is not None else "")
+            + (f" USD/BRL hoje {_dir(usdbrl)}." if usdbrl is not None else "")
         )
-        analise.cadeia.append(Passo("DXY → real / emergentes", f"DXY {dxy:+.2f}%", leitura))
+        analise.cadeia.append(Passo(
+            "DXY → real / emergentes", f"DXY {_pct(dxy)}", leitura,
+            porque="O DXY (dólar contra as principais moedas) é o termômetro de risco dos "
+                   "emergentes: dita o fluxo estrangeiro pra bolsa brasileira e o valor do real."))
 
 
 def _read_through(analise: Analise, idx: dict[str, Cotacao], rets) -> None:
@@ -331,41 +352,34 @@ def _read_through(analise: Analise, idx: dict[str, Cotacao], rets) -> None:
     ewz = _var(idx, "EWZ")
     if ewz is not None:
         analise.notas.append(
-            f"EWZ (ações brasileiras negociadas em NY) fechou em {_dir(ewz)} ({ewz:+.2f}%) — "
+            f"EWZ (ações brasileiras negociadas em NY) fechou {_dir(ewz)} ({ewz:+.2f}%) — "
             "prévia dolarizada; sinaliza o humor externo sobre o Brasil antes da abertura aqui."
         )
 
 
 def _commodities(analise: Analise, idx: dict[str, Cotacao]) -> None:
-    """Read-through de cada commodity → setor/ativo que ela sinaliza."""
-    def add(tk, titulo, leitura_alta, leitura_queda):
-        v = _var(idx, tk)
-        if v is None:
-            return
-        leitura = leitura_alta if v > 0 else leitura_queda
-        analise.commodities.append(Passo(titulo, f"{v:+.2f}%", leitura))
+    """Read-through de cada commodity → setor que ela sinaliza (3 estados + importância)."""
+    from . import porques
 
-    add("BZ=F", "Petróleo (Brent)",
-        "Petróleo em alta pressiona a inflação global (combustível) e favorece Petrobras e petrolíferas.",
-        "Petróleo em queda alivia inflação e pesa nas petrolíferas (Petrobras).")
-    add("GC=F", "Ouro",
-        "Ouro subindo = busca por refúgio / hedge contra inflação e juro real baixo — leitura de aversão a risco.",
-        "Ouro caindo sugere apetite a risco ou dólar/juro real em alta tirando brilho do metal.")
-    add("SI=F", "Prata",
-        "Prata em alta: híbrido (refúgio + demanda industrial/solar) — acompanha ouro mas amplifica o ciclo.",
-        "Prata em queda: enfraquece o lado industrial e o refúgio ao mesmo tempo.")
-    add("HG=F", "Cobre (Dr. Copper)",
-        "Cobre subindo é termômetro de CRESCIMENTO global — favorável a mineração (Vale) e a emergentes.",
-        "Cobre caindo sinaliza desaceleração da demanda global — vento contra Vale e commodities.")
-    pa = _var(idx, "PA=F")
-    pl = _var(idx, "PL=F")
-    if pa is not None or pl is not None:
-        media = [x for x in (pa, pl) if x is not None]
-        m = sum(media) / len(media)
-        analise.commodities.append(Passo(
-            "Platina / Paládio", f"{m:+.2f}%",
-            "Metais de catalisador automotivo — proxy da indústria e do ciclo de autos "
-            + ("(em alta: demanda industrial firme)." if m > 0 else "(em queda: indústria/autos fracos).")))
+    # (chave em porques.COMMODITY, variação de hoje)
+    itens: list[tuple[str, float | None]] = [
+        ("BZ=F", _var(idx, "BZ=F")),
+        ("HG=F", _var(idx, "HG=F")),
+        ("GC=F", _var(idx, "GC=F")),
+        ("SI=F", _var(idx, "SI=F")),
+    ]
+    pa, pl = _var(idx, "PA=F"), _var(idx, "PL=F")
+    medias = [x for x in (pa, pl) if x is not None]
+    itens.append(("PLPA", (sum(medias) / len(medias)) if medias else None))
+
+    for chave, v in itens:
+        if v is None:
+            continue
+        info = porques.COMMODITY[chave]
+        est = porques.estado(v)  # 'alta' | 'lado' | 'queda'
+        analise.commodities.append(
+            Passo(info["titulo"], _pct(v), info[est], porque=info["importancia"])
+        )
 
 
 def analisar(cotacoes: list[Cotacao], macro: Macro | None = None,
