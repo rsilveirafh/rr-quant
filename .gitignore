@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Dados brutos / caches de mercado (regeneráveis via API)
+data/raw/*
+!data/raw/.gitkeep
+
+# Segredos (chaves de API — FRED, etc.)
+.env
+*.secret.json
+
+# OS
+.DS_Store
+Thumbs.db
