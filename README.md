@@ -63,5 +63,8 @@ rr-quant/
 
 ## Status
 
-🌱 Recém-criado (2026-07-16). Estrutura + método da Rebecca documentados; transcrição
-de exemplo extraída. Código do primeiro dashboard ainda não iniciado.
+🌱 Criado em 2026-07-16. Estrutura pronta; **6 dias de leitura pré-mercado da Rebecca
+transcritos** e o método consolidado (união dos 6 dias, com frequências e tickers) em
+`docs/metodo-rebecca-parriao.md`. Achados: ela **não cobre cripto**, o técnico dela começa
+pela curva de **DI**, e a rotina abre por news+balanços+agenda. Código do primeiro
+dashboard ainda não iniciado.
