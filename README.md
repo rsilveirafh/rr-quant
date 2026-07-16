@@ -90,6 +90,13 @@ variação via yfinance), `report.py` (HTML), `cli.py` (entrada).
   - **Probabilidades condicionais históricas** (2 anos): ex. "quando a Ásia/Europa/S&P/EWZ
     sobe, o Ibov sobe em X% dos dias" com taxa-base e lift.
   - **Correlações-chave** (Ibov×Dow/S&P/EWZ/Nikkei/DXY, Petrobras×Brent, Vale×Cobre).
+  - **Read-through de commodities** (`analyze._commodities`): cada commodity → o setor que
+    sinaliza (Brent→Petrobras/inflação, cobre "Dr. Copper"→crescimento/Vale, ouro→refúgio,
+    prata→híbrido, platina/paládio→autos).
   - Estatísticas rotuladas como **co-movimento histórico, não previsão**.
-- ⏳ Próximo: macro via FRED/BCB + CME FedWatch; variação overnight (futuros); frente 2
-  (extração das transcrições).
+- ✅ **Camada macro (`macro.py`)** — inflação e juros por API pública sem chave:
+  - **FRED** (EUA): CPI cheio/núcleo, PPI, desemprego, jobless claims, Fed funds.
+  - **BCB SGS** (Brasil): Selic meta, CDI, IPCA (12m/mês), IPCA-15.
+  - **Juro real** (Selic vs IPCA 12m) e leitura que fecha o elo inflação→juros da cadeia.
+- ⏳ Próximo: CME FedWatch (prob. de juros); variação overnight (futuros); curva DI completa
+  (B3); frente 2 (extração das transcrições).

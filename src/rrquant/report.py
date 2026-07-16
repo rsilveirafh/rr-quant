@@ -78,14 +78,57 @@ def _prob_html(p) -> str:
     )
 
 
-def _leitura_html(a: Analise) -> str:
-    bullets = "".join(f"<li>{html.escape(b)}</li>" for b in a.regime_bullets)
-    cadeia = "".join(
-        f'<div class="passo"><div class="passo-top"><span class="passo-tit">{html.escape(p.titulo)}</span>'
+def _passos_html(passos) -> str:
+    return "".join(
+        f'<div class="passo"><div class="passo-top">'
+        f'<span class="passo-tit">{html.escape(p.titulo)}</span>'
         f'<span class="passo-num">{html.escape(p.numero)}</span></div>'
         f'<div class="passo-txt">{html.escape(p.leitura)}</div></div>'
-        for p in a.cadeia
+        for p in passos
     )
+
+
+def _fmt_ind(i) -> str:
+    if not i.ok:
+        return "&mdash;"
+    if i.unidade == "mil":
+        return f"{i.valor:.0f} mil"
+    if "%" in i.unidade:
+        s = f"{i.valor:.2f}%".replace(".", ",")
+        return s + (" a.a." if "a.a." in i.unidade else "")
+    return f"{i.valor:.2f}".replace(".", ",")
+
+
+def _painel_ind(titulo: str, indicadores) -> str:
+    linhas = "".join(
+        f'<tr><td>{html.escape(i.nome)}'
+        f'{f" <span class=\"hint\">({html.escape(i.extra)})</span>" if i.extra else ""}</td>'
+        f'<td class="c">{_fmt_ind(i)}</td></tr>'
+        for i in indicadores
+    )
+    return f'<div class="macro-col"><h4>{html.escape(titulo)}</h4><table class="correl"><tbody>{linhas}</tbody></table></div>'
+
+
+def _macro_html(m) -> str:
+    if m is None or not m.ok:
+        return ""
+    jr = (f'<span class="jr">juro real BR ~{m.juro_real:.1f}%</span>'.replace(".", ",")
+          if m.juro_real is not None else "")
+    leitura = "".join(f"<li>{html.escape(l)}</li>" for l in m.leitura)
+    return f"""<div class="sub-card macro">
+      <h3>Macro &mdash; inflação e juros <span class="hint">(FRED / BCB)</span> {jr}</h3>
+      <div class="macro-cols">
+        {_painel_ind("Estados Unidos", m.eua)}
+        {_painel_ind("Brasil", m.brasil)}
+      </div>
+      <ul class="notas">{leitura}</ul>
+    </div>"""
+
+
+def _leitura_html(a: Analise) -> str:
+    bullets = "".join(f"<li>{html.escape(b)}</li>" for b in a.regime_bullets)
+    cadeia = _passos_html(a.cadeia)
+    commodities = _passos_html(a.commodities)
     probs = "".join(_prob_html(p) for p in a.probs)
     correls = "".join(
         f'<tr><td>{html.escape(rot)}</td><td class="c">{c:+.2f}</td></tr>'.replace(".", ",")
@@ -116,6 +159,11 @@ def _leitura_html(a: Analise) -> str:
   <div class="sub-card cadeia">
     <h3>Cadeia de correlação <span class="hint">(o porquê)</span></h3>
     {cadeia}
+  </div>
+  {_macro_html(a.macro)}
+  <div class="sub-card cadeia">
+    <h3>Commodities → setores <span class="hint">(read-through)</span></h3>
+    {commodities}
   </div>
   {probs_bloco}
   {correl_bloco}
@@ -194,7 +242,13 @@ def gerar_html(blocos: dict[str, list[Cotacao]], analise: Analise,
   table.correl td {{ padding:5px 0; border-bottom:1px solid var(--line); font-size:14px; }}
   table.correl td.c {{ text-align:right; font-weight:700; font-variant-numeric:tabular-nums; }}
   table.correl tr:last-child td {{ border-bottom:0; }}
-  .notas {{ margin:0; padding-left:18px; color:var(--ink); opacity:.92; font-size:14px; }}
+  .notas {{ margin:8px 0 0; padding-left:18px; color:var(--ink); opacity:.92; font-size:14px; }}
+  .macro {{ grid-column:1/-1; }}
+  .macro-cols {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:18px; }}
+  .macro-col h4 {{ font-size:12px; margin:0 0 6px; color:var(--dim); text-transform:uppercase;
+    letter-spacing:.5px; }}
+  .jr {{ float:right; text-transform:none; letter-spacing:0; font-weight:700; color:var(--ink);
+    background:var(--line); padding:2px 10px; border-radius:6px; font-size:12px; }}
 
   /* --- Grid de blocos --- */
   .grid {{ display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:16px; }}

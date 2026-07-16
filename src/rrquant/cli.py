@@ -12,7 +12,7 @@ import datetime as dt
 import webbrowser
 from pathlib import Path
 
-from . import analyze, collect, report
+from . import analyze, collect, macro as macro_mod, report
 
 RAIZ = Path(__file__).resolve().parents[2]
 SAIDA = RAIZ / "output" / "dashboard.html"
@@ -38,8 +38,11 @@ def main(argv: list[str] | None = None) -> int:
     cotacoes = collect.coletar(periodo=args.periodo)
     blocos = collect.por_bloco(cotacoes)
 
-    print("Analisando (regime, cadeia de correlação, probabilidades históricas)...")
-    analise = analyze.analisar(cotacoes)
+    print("Buscando macro (FRED / BCB)...")
+    macro = macro_mod.coletar_macro()
+
+    print("Analisando (regime, cadeia, commodities, probabilidades históricas)...")
+    analise = analyze.analisar(cotacoes, macro=macro)
 
     datas = sorted({c.data for c in cotacoes if c.data})
     data_dados = datas[-1] if datas else None

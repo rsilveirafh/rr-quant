@@ -23,6 +23,7 @@ import pandas as pd
 import yfinance as yf
 
 from .collect import Cotacao
+from .macro import Macro
 from . import tickers as T
 
 warnings.filterwarnings("ignore")
@@ -81,9 +82,11 @@ class Analise:
     regime_bullets: list[str] = field(default_factory=list)
     amplitude: str = ""
     cadeia: list[Passo] = field(default_factory=list)
+    commodities: list[Passo] = field(default_factory=list)
     probs: list[Prob] = field(default_factory=list)
     correls: list[tuple[str, float]] = field(default_factory=list)
     notas: list[str] = field(default_factory=list)
+    macro: Macro | None = None
     hist_ok: bool = False
 
 
@@ -255,7 +258,27 @@ def _cadeia(analise: Analise, idx: dict[str, Cotacao], rets) -> None:
         )
         analise.cadeia.append(Passo("Metais → Vale", f"Cobre {cobre:+.2f}%", leitura))
 
-    # 3. Juros global → risco
+    # 3. Inflação → juros (Brasil), com números reais do macro
+    if analise.macro and analise.macro.ok:
+        ipca12 = selic = jr = None
+        for i in analise.macro.brasil:
+            if i.nome == "IPCA" and i.extra == "acum. 12m" and i.ok:
+                ipca12 = i.valor
+            if i.nome == "Selic meta" and i.ok:
+                selic = i.valor
+        jr = analise.macro.juro_real
+        if ipca12 is not None and selic is not None:
+            _c = lambda x, d=2: f"{x:.{d}f}".replace(".", ",")
+            leitura = (
+                f"IPCA 12m {_c(ipca12)}% e Selic {_c(selic)}% a.a."
+                + (f" → juro real ~{_c(jr, 1)}%." if jr is not None else ".")
+                + " Juro real alto sustenta o real e atrai renda fixa, mas encarece "
+                "o capital e pesa na bolsa."
+            )
+            analise.cadeia.append(
+                Passo("Inflação → juros (BR)", f"Selic {_c(selic)}%", leitura))
+
+    # 4. Juros global → risco
     if y10 is not None:
         leitura = (
             f"Treasury 10a com yield em {_dir(y10)}. "
@@ -313,14 +336,49 @@ def _read_through(analise: Analise, idx: dict[str, Cotacao], rets) -> None:
         )
 
 
-def analisar(cotacoes: list[Cotacao], periodo_hist: str = "2y") -> Analise:
+def _commodities(analise: Analise, idx: dict[str, Cotacao]) -> None:
+    """Read-through de cada commodity → setor/ativo que ela sinaliza."""
+    def add(tk, titulo, leitura_alta, leitura_queda):
+        v = _var(idx, tk)
+        if v is None:
+            return
+        leitura = leitura_alta if v > 0 else leitura_queda
+        analise.commodities.append(Passo(titulo, f"{v:+.2f}%", leitura))
+
+    add("BZ=F", "Petróleo (Brent)",
+        "Petróleo em alta pressiona a inflação global (combustível) e favorece Petrobras e petrolíferas.",
+        "Petróleo em queda alivia inflação e pesa nas petrolíferas (Petrobras).")
+    add("GC=F", "Ouro",
+        "Ouro subindo = busca por refúgio / hedge contra inflação e juro real baixo — leitura de aversão a risco.",
+        "Ouro caindo sugere apetite a risco ou dólar/juro real em alta tirando brilho do metal.")
+    add("SI=F", "Prata",
+        "Prata em alta: híbrido (refúgio + demanda industrial/solar) — acompanha ouro mas amplifica o ciclo.",
+        "Prata em queda: enfraquece o lado industrial e o refúgio ao mesmo tempo.")
+    add("HG=F", "Cobre (Dr. Copper)",
+        "Cobre subindo é termômetro de CRESCIMENTO global — favorável a mineração (Vale) e a emergentes.",
+        "Cobre caindo sinaliza desaceleração da demanda global — vento contra Vale e commodities.")
+    pa = _var(idx, "PA=F")
+    pl = _var(idx, "PL=F")
+    if pa is not None or pl is not None:
+        media = [x for x in (pa, pl) if x is not None]
+        m = sum(media) / len(media)
+        analise.commodities.append(Passo(
+            "Platina / Paládio", f"{m:+.2f}%",
+            "Metais de catalisador automotivo — proxy da indústria e do ciclo de autos "
+            + ("(em alta: demanda industrial firme)." if m > 0 else "(em queda: indústria/autos fracos).")))
+
+
+def analisar(cotacoes: list[Cotacao], macro: Macro | None = None,
+             periodo_hist: str = "2y") -> Analise:
     analise = Analise()
+    analise.macro = macro
     idx = _idx(cotacoes)
     rets = carregar_retornos(periodo_hist)
     analise.hist_ok = rets is not None and len(rets) > 40
 
     _regime(analise, idx, cotacoes)
     _cadeia(analise, idx, rets if analise.hist_ok else None)
+    _commodities(analise, idx)
     _read_through(analise, idx, rets if analise.hist_ok else None)
 
     if not analise.hist_ok:
