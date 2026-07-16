@@ -61,10 +61,26 @@ rr-quant/
 └── src/rrquant/              código
 ```
 
+## Como rodar (frente 1 — snapshot diário)
+
+```bash
+python -m venv .venv
+.venv/Scripts/python -m pip install -e .   # ou: pip install yfinance pandas
+.venv/Scripts/python -m rrquant            # gera output/dashboard.html
+.venv/Scripts/python -m rrquant --abrir    # gera e abre no navegador
+```
+
+Código em `src/rrquant/`: `tickers.py` (catálogo por bloco), `collect.py` (fetch +
+variação via yfinance), `report.py` (HTML), `cli.py` (entrada).
+
 ## Status
 
-🌱 Criado em 2026-07-16. Estrutura pronta; **6 dias de leitura pré-mercado da Rebecca
-transcritos** e o método consolidado (união dos 6 dias, com frequências e tickers) em
-`docs/metodo-rebecca-parriao.md`. Achados: ela **não cobre cripto**, o técnico dela começa
-pela curva de **DI**, e a rotina abre por news+balanços+agenda. Código do primeiro
-dashboard ainda não iniciado.
+🌱 Criado em 2026-07-16.
+- ✅ **6 dias de leitura pré-mercado transcritos** + método consolidado em
+  `docs/metodo-rebecca-parriao.md` (achados: **não cobre cripto**, técnico começa pela
+  curva de **DI**, rotina abre por news+balanços+agenda).
+- ✅ **Frente 1 — POC do snapshot diário funcionando**: coleta 46 ativos (índices
+  mundiais, commodities, câmbio, juros, VIX/VXN, ações) via yfinance e gera um dashboard
+  HTML agrupado por bloco, com variação do dia e cores de alta/baixa. Roda com dados EOD.
+- ⏳ Próximo: enriquecer (macro via FRED/BCB, CME FedWatch) e/ou frente 2 (extração das
+  transcrições).

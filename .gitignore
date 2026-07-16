@@ -11,6 +11,9 @@ venv/
 data/raw/*
 !data/raw/.gitkeep
 
+# Dashboards gerados
+output/
+
 # Segredos (chaves de API — FRED, etc.)
 .env
 *.secret.json
