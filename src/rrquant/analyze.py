@@ -42,6 +42,7 @@ HIST = {
     "^IXIC": "Nasdaq",
     "EWZ": "EWZ",
     "DX-Y.NYB": "DXY",
+    "BRL=X": "USD/BRL",
     "BZ=F": "Brent",
     "HG=F": "Cobre",
     "GC=F": "Ouro",
@@ -99,6 +100,7 @@ class Analise:
     correls: list[tuple[str, float]] = field(default_factory=list)
     notas: list[str] = field(default_factory=list)
     macro: Macro | None = None
+    sparks: dict[str, list[float]] = field(default_factory=dict)
     hist_ok: bool = False
 
 
@@ -501,6 +503,12 @@ def analisar(cotacoes: list[Cotacao], macro: Macro | None = None,
     _regime(analise, idx, cotacoes)
     if analise.hist_ok:
         _placar(analise, rets)
+        # sparklines: últimos ~30 pregões (retorno acumulado normalizado)
+        for tk in ("^BVSP", "BZ=F", "BRL=X", "^VIX", "GC=F"):
+            if tk in rets:
+                serie = (1 + rets[tk].dropna().tail(30)).cumprod()
+                if len(serie) >= 2:
+                    analise.sparks[tk] = [float(x) for x in serie.values]
     _cadeia(analise, idx, rets if analise.hist_ok else None)
     _commodities(analise, idx)
     _read_through(analise, idx, rets if analise.hist_ok else None)

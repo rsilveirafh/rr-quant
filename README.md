@@ -113,5 +113,10 @@ variação via yfinance), `report.py` (HTML), `cli.py` (entrada).
   base. Vieses do dia por relação univariada (estável). Rotulado como estimativa, não
   garantia. Escolhi logística direta porque no Python 3.14 `statsmodels`/`sklearn` podem
   não ter wheel; migração futura opcional p/ diagnósticos.
-- ⏳ Próximo: melhorar copy pt-BR do placar; CME FedWatch; variação overnight; curva DI
-  (B3); backtest formal do placar; frente 2 (extração das transcrições).
+- ✅ **Front-end (`charts.py` + `report.py`)** — layout largo (até 1600px/96vw); **fileira
+  de KPIs** chamativos no topo (gauge SVG do placar, regime, VIX, USD/BRL, Brent, juro real,
+  com sparklines); probabilidades e correlações viraram **gráficos de barra** (barras com
+  marcador da base / barras divergentes). Gráficos são SVG/CSS inline (sem dep, offline) e
+  herdam o modo daltônico via variáveis CSS.
+- ⏳ Próximo: migrar o placar p/ `statsmodels`/`sklearn` (diagnósticos); CME FedWatch;
+  variação overnight; curva DI (B3); backtest formal do placar; frente 2 (transcrições).
