@@ -237,7 +237,7 @@ def _leitura_html(a: Analise) -> str:
       {_barras_corr(a.correls)}
     </div>""" if a.correls else ""
 
-    notas_bloco = (f'<div class="sub-card"><h3>Prévia externa &amp; contexto</h3>'
+    notas_bloco = (f'<div class="sub-card full"><h3>Prévia externa &amp; contexto</h3>'
                    f'<ul class="notas">{bullets}{notas}</ul></div>')
 
     return f"""<section class="leitura">
@@ -327,8 +327,10 @@ def gerar_html(blocos: dict[str, list[Cotacao]], analise: Analise,
   .spark {{ width:100%; height:34px; margin-top:8px; color:var(--tc); }}
 
   /* --- Leitura --- */
-  .leitura {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr));
+  .leitura {{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr));
     gap:14px; margin-bottom:22px; align-items:start; }}
+  @media (max-width:900px) {{ .leitura {{ grid-template-columns:1fr; }} }}
+  .sub-card.full {{ grid-column:1/-1; }}
   .sub-card {{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }}
   .sub-card h3 {{ font-size:13px; margin:0 0 10px; text-transform:uppercase; letter-spacing:.6px; color:var(--dim); }}
   .hint {{ text-transform:none; letter-spacing:0; font-weight:400; opacity:.8; }}
