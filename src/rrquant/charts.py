@@ -9,17 +9,41 @@ from __future__ import annotations
 import math
 
 
-def gauge(pct: float, cor: str = "var(--up)") -> str:
-    """Medidor semicircular 0–100 com o valor em destaque no centro."""
+def _pt(p: float) -> tuple[float, float]:
+    """Ponto no semicírculo p/ a posição p (0=esq … 100=dir)."""
+    a = math.radians(180 * (1 - p / 100))
+    return 100 + 90 * math.cos(a), 100 - 90 * math.sin(a)
+
+
+def gauge(pct: float, cor: str = "var(--up)",
+          z_baixa: float = 47, z_alta: float = 53) -> str:
+    """Medidor de viés semicircular: baixa (esq) → estável (meio) → alta (dir).
+
+    As zonas são coloridas (vermelho/cinza/verde, ou azul/cinza/laranja no modo
+    daltônico) e um marcador aponta a probabilidade de o Ibov fechar em alta.
+    """
     pct = max(0.0, min(100.0, pct))
-    a = math.radians(180 * (1 - pct / 100))          # 180°=esq(0) … 0°=dir(100)
-    x = 100 + 90 * math.cos(a)
-    y = 100 - 90 * math.sin(a)
+
+    def arco(p0, p1, color, w=14, op=1.0):
+        x0, y0 = _pt(p0)
+        x1, y1 = _pt(p1)
+        return (f'<path d="M{x0:.1f},{y0:.1f} A90,90 0 0 1 {x1:.1f},{y1:.1f}" '
+                f'fill="none" stroke="{color}" stroke-width="{w}" opacity="{op}"/>')
+
+    zonas = (arco(0, z_baixa, "var(--down)")
+             + arco(z_baixa, z_alta, "var(--flat)")
+             + arco(z_alta, 100, "var(--up)"))
+    mx, my = _pt(pct)
+    marcador = (f'<circle cx="{mx:.1f}" cy="{my:.1f}" r="8" fill="var(--ink)" '
+                f'stroke="var(--card)" stroke-width="3"/>')
     val = f"{pct:.0f}%"
-    return f"""<svg class="gauge" viewBox="0 0 200 116" role="img" aria-label="{val}">
-  <path d="M10,100 A90,90 0 0 1 190,100" fill="none" stroke="var(--line)" stroke-width="15" stroke-linecap="round"/>
-  <path d="M10,100 A90,90 0 0 1 {x:.1f},{y:.1f}" fill="none" stroke="{cor}" stroke-width="15" stroke-linecap="round"/>
-  <text x="100" y="92" text-anchor="middle" class="gauge-val">{val}</text>
+    labels = ('<text x="4" y="114" class="g-lbl" text-anchor="start">baixa</text>'
+              '<text x="100" y="12" class="g-lbl" text-anchor="middle">estável</text>'
+              '<text x="196" y="114" class="g-lbl" text-anchor="end">alta</text>')
+    return f"""<svg class="gauge" viewBox="0 0 200 120" role="img" aria-label="probabilidade {val}">
+  {zonas}{marcador}
+  <text x="100" y="84" text-anchor="middle" class="gauge-val" fill="{cor}">{val}</text>
+  {labels}
 </svg>"""
 
 

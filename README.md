@@ -118,5 +118,10 @@ variação via yfinance), `report.py` (HTML), `cli.py` (entrada).
   com sparklines); probabilidades e correlações viraram **gráficos de barra** (barras com
   marcador da base / barras divergentes). Gráficos são SVG/CSS inline (sem dep, offline) e
   herdam o modo daltônico via variáveis CSS.
+- ✅ **Placar explorado + aba Metodologia** — gauge virou **medidor de viés** (zonas
+  baixa/estável/alta, marcador na probabilidade); card **"como o placar chegou nos X%"** com
+  as contribuições de cada variável hoje (barras divergentes); e uma **aba Metodologia**
+  explicando o que é "próximo pregão", as 5 variáveis (com a lógica de defasagem anti-vazamento),
+  o modelo, a validação fora da amostra e como ler o medidor + gráfico de pesos das variáveis.
 - ⏳ Próximo: migrar o placar p/ `statsmodels`/`sklearn` (diagnósticos); CME FedWatch;
   variação overnight; curva DI (B3); backtest formal do placar; frente 2 (transcrições).

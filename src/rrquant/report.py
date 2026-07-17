@@ -166,6 +166,117 @@ def _barras_corr(correls) -> str:
     return f'<div class="barchart">{"".join(rows)}</div>'
 
 
+def _barras_diverg(items) -> str:
+    """Barras divergentes (0 no centro) normalizadas pelo maior |valor|.
+    Positivo → direita (alta); negativo → esquerda (baixa)."""
+    if not items:
+        return ""
+    maxabs = max(abs(v) for _n, v in items) or 1.0
+    rows = []
+    for nome, v in sorted(items, key=lambda t: -abs(t[1])):
+        frac = v / maxabs
+        if frac >= 0:
+            left, width, cls, lado = 50.0, frac * 50.0, "pos", "↑ alta"
+        else:
+            left, width, cls, lado = 50.0 + frac * 50.0, -frac * 50.0, "neg", "↓ baixa"
+        rows.append(f"""<div class="bar-row">
+      <div class="bar-lbl">{html.escape(nome)}</div>
+      <div class="bar-track diverg">
+        <div class="bar-zero"></div>
+        <div class="bar-fill {cls}" style="left:{left:.1f}%;width:{max(width,0.6):.1f}%"></div>
+      </div>
+      <div class="bar-val {cls}">{lado}</div>
+    </div>""")
+    return f'<div class="barchart">{"".join(rows)}</div>'
+
+
+def _barras_peso(pesos) -> str:
+    """Barras simples do peso (|coeficiente|) de cada variável no modelo."""
+    if not pesos:
+        return ""
+    mx = max(v for _n, v in pesos) or 1.0
+    rows = []
+    for nome, v in sorted(pesos, key=lambda t: -t[1]):
+        val = f"{v:.2f}".replace(".", ",")
+        rows.append(f"""<div class="bar-row">
+      <div class="bar-lbl">{html.escape(nome)}</div>
+      <div class="bar-track"><div class="bar-fill neutro" style="width:{v / mx * 100:.0f}%"></div></div>
+      <div class="bar-val">{val}</div>
+    </div>""")
+    return f'<div class="barchart">{"".join(rows)}</div>'
+
+
+def _analise_placar_html(a: Analise) -> str:
+    """Card que explica COMO o placar chegou no número de hoje."""
+    p = a.placar
+    if not p or not p.contribs:
+        return ""
+    return f"""<section class="analise">
+  <div class="sub-card full">
+    <h3>Como o placar chegou nos {p.prob:.0f}% <span class="hint">(contribuição de cada variável hoje, em log-odds)</span></h3>
+    {_barras_diverg(p.contribs)}
+    <div class="analise-nota">À direita, a variável empurra a probabilidade para <b>alta</b>; à esquerda, para <b>baixa</b>. Os sinais saem do modelo conjunto (regressão logística), então podem diferir da leitura isolada de cada fator. Veja a aba <b>Metodologia</b> para como tudo é construído.</div>
+  </div>
+</section>"""
+
+
+def _metodo_html(a: Analise) -> str:
+    p = a.placar
+    pesos = _barras_peso(p.pesos) if p and p.pesos else "<p class='hint'>Modelo indisponível nesta execução.</p>"
+    n = p.n if p else "—"
+    acc = f"{p.acuracia:.0f}%" if p else "—"
+    base = f"{p.base:.0f}%" if p else "—"
+    return f"""<section class="tab metodo" id="tab-metodo" hidden>
+  <div class="sub-card full">
+    <h3>Como o placar do próximo pregão é medido</h3>
+    <p><b>O que é o "próximo pregão".</b> É a próxima sessão de negociação do Ibovespa.
+    Se você roda o dashboard <i>depois</i> do fechamento, é o dia seguinte; se roda de manhã
+    <i>antes</i> da abertura, é a sessão que vai abrir. O alvo do modelo é uma pergunta
+    simples: <b>qual a probabilidade de o Ibovespa fechar em alta nessa sessão?</b></p>
+
+    <p><b>Por que não é "adivinhar o futuro".</b> Prever a direção do Ibov <i>amanhã</i> a
+    partir dos dados de <i>hoje</i> não funciona (testamos: dá ~45% fora da amostra, pior que
+    cara-ou-coroa). O que funciona é ler os <b>sinais que ANTECEDEM a abertura</b> — o "tape"
+    global que já aconteceu antes do Ibov negociar.</p>
+
+    <h4>As {len(a.placar.pesos) if a.placar and a.placar.pesos else 5} variáveis levadas em conta</h4>
+    <ul class="metodo-vars">
+      <li><b>Ásia</b> (Nikkei, Hang Seng, Kospi) — fecham de madrugada, antes do Ibov abrir. Primeiro humor do dia.</li>
+      <li><b>Europa</b> (DAX, Eurostoxx 50) — abrem na nossa manhã, ainda antes do Ibov.</li>
+      <li><b>S&P 500 (ontem)</b> — o fechamento de <i>ontem</i> em NY. Entra defasado 1 dia porque NY negocia junto/depois do Ibov (usar o de hoje seria "espiar o futuro").</li>
+      <li><b>EWZ (ontem)</b> — ações brasileiras negociadas em NY; prévia dolarizada, também do fechamento de ontem.</li>
+      <li><b>DXY</b> — força do dólar no mundo; dólar forte tira fluxo de emergentes.</li>
+    </ul>
+
+    <h4>Peso de cada variável no modelo</h4>
+    <p class="hint">Quanto cada fator influencia a probabilidade (|coeficiente padronizado| da regressão logística). Quanto maior, mais o modelo se apoia nele.</p>
+    {pesos}
+
+    <h4>O modelo</h4>
+    <p>Uma <b>regressão logística</b> (o método padrão de econometria para prever direção
+    sobe/desce) treinada em <b>{n} pregões</b> (~2 anos) sobre essas 5 variáveis. Ela aprende
+    o peso de cada sinal e devolve uma probabilidade de 0 a 100%. Implementada direto com
+    numpy; equivalente ao que <code>statsmodels</code>/<code>scikit-learn</code> (Python) ou
+    <code>glm</code> (R) fazem.</p>
+
+    <h4>Validação honesta</h4>
+    <p>A acurácia mostrada é <b>fora da amostra</b> (split cronológico 80/20: treina nos
+    primeiros 80% dos dias, testa nos 20% finais que o modelo nunca viu). Hoje: <b>~{acc}</b>,
+    contra uma base de <b>{base}</b> (a frequência histórica de dias de alta). O <i>edge</i> é
+    pequeno e real — não é bola de cristal. <b>É estimativa estatística, não garantia.</b></p>
+
+    <h4>Como ler o medidor</h4>
+    <p>O semicírculo é um <b>medidor de viés</b>: <span class="z-down">esquerda = viés de
+    baixa</span>, <span class="z-flat">meio = estável</span>, <span class="z-up">direita =
+    viés de alta</span>. O marcador aponta a probabilidade estimada; 50% é moeda ao ar.</p>
+
+    <h4>Fontes de dados</h4>
+    <p class="hint">Preços e índices: yfinance (Yahoo Finance). Macro EUA: FRED. Macro Brasil
+    (Selic, CDI, IPCA): Banco Central (SGS). Tudo via API pública, dados de fechamento (EOD).</p>
+  </div>
+</section>"""
+
+
 def _tile_ativo(idx, tk, titulo, ti, sparks, nota="") -> str | None:
     c = idx.get(tk)
     if not c or not c.ok:
@@ -293,7 +404,7 @@ def gerar_html(blocos: dict[str, list[Cotacao]], analise: Analise,
   * {{ box-sizing:border-box; }}
   body {{ margin:0; background:var(--bg); color:var(--ink);
     font:15px/1.45 -apple-system,Segoe UI,Roboto,sans-serif; padding:22px 28px; }}
-  header, .kpis, .leitura, .grid, footer {{ max-width:min(1600px, 96vw); margin-left:auto; margin-right:auto; }}
+  header, .tabbar, .kpis, .analise, .leitura, .grid, .metodo, footer {{ max-width:min(1600px, 96vw); margin-left:auto; margin-right:auto; }}
   header {{ margin-bottom:18px; display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; }}
   h1 {{ font-size:22px; margin:0 0 4px; letter-spacing:.3px;
     background:linear-gradient(90deg,var(--b0),var(--b2),var(--b5));
@@ -325,6 +436,23 @@ def gerar_html(blocos: dict[str, list[Cotacao]], analise: Analise,
   .gauge {{ width:100%; max-width:220px; height:auto; align-self:center; }}
   .gauge-val {{ fill:var(--ink); font-weight:800; font-size:40px; }}
   .spark {{ width:100%; height:34px; margin-top:8px; color:var(--tc); }}
+  .g-lbl {{ fill:var(--dim); font-size:11px; font-weight:600; }}
+
+  /* --- Abas + análise + metodologia --- */
+  .tabbar {{ display:flex; gap:8px; margin-bottom:16px; }}
+  .tabbtn {{ cursor:pointer; border:1px solid var(--line); background:var(--card); color:var(--dim);
+    font-weight:600; padding:8px 16px; border-radius:9px; font-size:14px; }}
+  .tabbtn.active {{ color:var(--ink); border-color:var(--b2); box-shadow:inset 0 -3px 0 var(--b2); }}
+  .tab[hidden] {{ display:none; }}
+  .analise {{ margin-bottom:20px; }}
+  .analise-nota {{ font-size:12.5px; color:var(--dim); margin-top:10px; }}
+  .metodo p {{ font-size:14px; line-height:1.55; opacity:.95; }}
+  .metodo h4 {{ margin:18px 0 6px; font-size:15px; }}
+  .metodo-vars {{ font-size:14px; line-height:1.5; margin:6px 0; }}
+  .metodo-vars li {{ margin:5px 0; }}
+  .z-up {{ color:var(--up); font-weight:700; }}
+  .z-down {{ color:var(--down); font-weight:700; }}
+  .z-flat {{ color:var(--flat); font-weight:700; }}
 
   /* --- Leitura --- */
   .leitura {{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr));
@@ -404,11 +532,19 @@ def gerar_html(blocos: dict[str, list[Cotacao]], analise: Analise,
   </div>
   <button id="cbtoggle" onclick="toggleCB()" aria-pressed="false">♿ Modo daltônico</button>
 </header>
+<nav class="tabbar">
+  <button class="tabbtn active" data-tab="dash" onclick="showTab('dash')">📊 Dashboard</button>
+  <button class="tabbtn" data-tab="metodo" onclick="showTab('metodo')">📖 Metodologia</button>
+</nav>
+<section class="tab" id="tab-dash">
 {_kpis_html(idx, analise)}
+{_analise_placar_html(analise)}
 {_leitura_html(analise)}
 <main class="grid">
 {secoes}
 </main>
+</section>
+{_metodo_html(analise)}
 <footer>{rodape}</footer>
 <script>
   function applyCB(on) {{
@@ -420,6 +556,10 @@ def gerar_html(blocos: dict[str, list[Cotacao]], analise: Analise,
   }}
   function toggleCB() {{ applyCB(document.documentElement.getAttribute('data-cb') !== '1'); }}
   try {{ applyCB(localStorage.getItem('rrq-cb') === '1'); }} catch (e) {{}}
+  function showTab(name) {{
+    document.querySelectorAll('.tab').forEach(function (t) {{ t.hidden = (t.id !== 'tab-' + name); }});
+    document.querySelectorAll('.tabbtn').forEach(function (b) {{ b.classList.toggle('active', b.dataset.tab === name); }});
+  }}
 </script>
 </body>
 </html>"""

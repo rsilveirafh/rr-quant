@@ -81,10 +81,12 @@ class Passo:
 class Placar:
     prob: float               # P(Ibov sobe no próximo pregão), em %
     base: float               # taxa-base histórica, em %
-    acuracia: float           # acerto histórico in-sample, em %
+    acuracia: float           # acerto fora da amostra, em %
     n: int                    # dias usados no ajuste
     classe: str               # 'up' | 'down' | 'flat' (viés do placar)
-    drivers: list[tuple[str, str, str]] = field(default_factory=list)  # (nome, seta, 'favor'|'contra')
+    drivers: list[tuple[str, str, str]] = field(default_factory=list)   # (nome, seta, 'favor'|'contra')
+    contribs: list[tuple[str, float]] = field(default_factory=list)     # contribuição de hoje (log-odds)
+    pesos: list[tuple[str, float]] = field(default_factory=list)        # |coef padronizado| (peso no modelo)
 
 
 @dataclass
@@ -489,7 +491,12 @@ def _placar(analise: Analise, rets: pd.DataFrame) -> None:
     pares.sort(reverse=True)
     drivers = [(nome, seta, favor) for _c, nome, seta, favor in pares[:3]]
 
-    analise.placar = Placar(prob, base, acc, int(len(dados)), classe, drivers)
+    # Decomposição do score de hoje: contribuição = peso × fator padronizado
+    contribs = [(_FATORES[j], float(w[j] * x_hoje[j])) for j in range(len(_FATORES))]
+    pesos = [(_FATORES[j], float(abs(w[j]))) for j in range(len(_FATORES))]
+
+    analise.placar = Placar(prob, base, acc, int(len(dados)), classe,
+                            drivers, contribs, pesos)
 
 
 def analisar(cotacoes: list[Cotacao], macro: Macro | None = None,
