@@ -15,10 +15,10 @@ previsão — os textos são redigidos com esse cuidado.
 
 from __future__ import annotations
 
-import math
 import warnings
 from dataclasses import dataclass, field
 
+import numpy as np
 import pandas as pd
 import yfinance as yf
 
@@ -77,7 +77,18 @@ class Passo:
 
 
 @dataclass
+class Placar:
+    prob: float               # P(Ibov sobe no próximo pregão), em %
+    base: float               # taxa-base histórica, em %
+    acuracia: float           # acerto histórico in-sample, em %
+    n: int                    # dias usados no ajuste
+    classe: str               # 'up' | 'down' | 'flat' (viés do placar)
+    drivers: list[tuple[str, str, str]] = field(default_factory=list)  # (nome, seta, 'favor'|'contra')
+
+
+@dataclass
 class Analise:
+    placar: Placar | None = None
     regime_rotulo: str = "—"
     regime_classe: str = "flat"
     regime_bullets: list[str] = field(default_factory=list)
@@ -382,6 +393,103 @@ def _commodities(analise: Analise, idx: dict[str, Cotacao]) -> None:
         )
 
 
+# ---------- Placar do Ibovespa (regressão logística sobre os sinais) ----------
+
+# Fatores que ANTECEDEM a abertura do Ibov (sem vazamento): Ásia já fechou,
+# Europa está abrindo, e S&P/EWZ entram pelo FECHAMENTO DE ONTEM em NY (que
+# negociam junto/depois do Ibov no mesmo dia — por isso defasados 1 dia).
+_FATORES = ["Ásia", "Europa", "S&P 500 (ont.)", "EWZ (ont.)", "DXY"]
+
+
+def _sigmoide(z):
+    return 1.0 / (1.0 + np.exp(-np.clip(z, -30, 30)))
+
+
+def _fit_logit(X, y, iters=800, lr=0.5, l2=1.0):
+    """Regressão logística simples (gradiente descendente + L2). X já padronizado."""
+    n, d = X.shape
+    w = np.zeros(d)
+    b = 0.0
+    for _ in range(iters):
+        p = _sigmoide(X @ w + b)
+        g = p - y
+        w -= lr * (X.T @ g / n + l2 * w / n)
+        b -= lr * g.mean()
+    return w, b
+
+
+def _placar(analise: Analise, rets: pd.DataFrame) -> None:
+    need = ["^N225", "^HSI", "^KS11", "^GDAXI", "^STOXX50E", "^GSPC", "EWZ", "DX-Y.NYB", "^BVSP"]
+    if any(c not in rets for c in need):
+        return
+    df = rets[need].dropna()
+    if len(df) < 120:
+        return
+
+    asia = df[["^N225", "^HSI", "^KS11"]].mean(axis=1)
+    europa = df[["^GDAXI", "^STOXX50E"]].mean(axis=1)
+    # S&P e EWZ negociam junto/depois do Ibov → usar o FECHAMENTO DE ONTEM (shift 1)
+    feat = pd.DataFrame({
+        "Ásia":            asia,
+        "Europa":          europa,
+        "S&P 500 (ont.)":  df["^GSPC"].shift(1),
+        "EWZ (ont.)":      df["EWZ"].shift(1),
+        "DXY":             df["DX-Y.NYB"],
+    })
+    ibov_ret = df["^BVSP"]                       # retorno do Ibov na sessão (alvo)
+    dados = feat.copy()
+    dados["y"] = (ibov_ret > 0).astype(float)
+    dados = dados.dropna()
+    if len(dados) < 120:
+        return
+
+    Xall = dados[feat.columns].values
+    yall = dados["y"].values
+    mu, sd = Xall.mean(0), Xall.std(0)
+    sd[sd == 0] = 1.0
+    Xs = (Xall - mu) / sd
+
+    # Acurácia HONESTA: split cronológico 80/20 (fora da amostra).
+    k = int(len(Xs) * 0.8)
+    if k >= 60 and (len(Xs) - k) >= 20:
+        w0, b0 = _fit_logit(Xs[:k], yall[:k])
+        pred = _sigmoide(Xs[k:] @ w0 + b0) > 0.5
+        acc = float((pred == (yall[k:] > 0.5)).mean()) * 100
+    else:
+        acc = float("nan")
+
+    # Modelo final treina em tudo
+    w, b = _fit_logit(Xs, yall)
+    base = float(yall.mean()) * 100
+
+    # Previsão p/ o PRÓXIMO pregão: usa os leads mais recentes (Ásia/Europa/DXY de
+    # hoje + fechamento de hoje em NY, que será o "de ontem" na próxima sessão).
+    leads = np.array([
+        asia.iloc[-1], europa.iloc[-1], df["^GSPC"].iloc[-1],
+        df["EWZ"].iloc[-1], df["DX-Y.NYB"].iloc[-1],
+    ], dtype=float)
+    x_hoje = (leads - mu) / sd
+    prob = float(_sigmoide(x_hoje @ w + b)) * 100
+
+    classe = "up" if prob >= 53 else ("down" if prob <= 47 else "flat")
+
+    # Vieses: relação UNIVARIADA (lead → sessão do Ibov). Estável e intuitiva.
+    pares = []
+    for j, nome in enumerate(_FATORES):
+        c = dados[nome].corr(pd.Series(dados["y"].values, index=dados.index)
+                             .replace({0: -1}))  # sinal do lead vs alta/baixa
+        hoje = float(leads[j])
+        if abs(hoje) < 1e-9 or pd.isna(c) or abs(c) < 0.05:
+            continue
+        seta = "▲" if hoje > 0 else "▼"
+        favor = "favor" if (hoje > 0) == (c > 0) else "contra"
+        pares.append((abs(c), nome, seta, favor))
+    pares.sort(reverse=True)
+    drivers = [(nome, seta, favor) for _c, nome, seta, favor in pares[:3]]
+
+    analise.placar = Placar(prob, base, acc, int(len(dados)), classe, drivers)
+
+
 def analisar(cotacoes: list[Cotacao], macro: Macro | None = None,
              periodo_hist: str = "2y") -> Analise:
     analise = Analise()
@@ -391,6 +499,8 @@ def analisar(cotacoes: list[Cotacao], macro: Macro | None = None,
     analise.hist_ok = rets is not None and len(rets) > 40
 
     _regime(analise, idx, cotacoes)
+    if analise.hist_ok:
+        _placar(analise, rets)
     _cadeia(analise, idx, rets if analise.hist_ok else None)
     _commodities(analise, idx)
     _read_through(analise, idx, rets if analise.hist_ok else None)

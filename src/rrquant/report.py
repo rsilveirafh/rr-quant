@@ -166,8 +166,27 @@ def _leitura_html(a: Analise) -> str:
     notas_bloco = (f'<div class="sub-card"><h3>Prévia externa</h3>'
                    f'<ul class="notas">{notas}</ul></div>') if notas else ""
 
+    p = a.placar
+    if p:
+        drivers = ", ".join(
+            f"{html.escape(n)} {seta} (a {fav})" for n, seta, fav in p.drivers) or "&mdash;"
+        vies = ("viés de alta" if p.classe == "up"
+                else "viés de baixa" if p.classe == "down" else "sem viés claro")
+        hero = f"""<div class="placar">
+      <div class="placar-num">{p.prob:.0f}%</div>
+      <div class="placar-lbl">de chance de o <b>Ibovespa fechar em alta</b> no próximo pregão &mdash; {vies}
+        <span class="placar-meta">base histórica {p.base:.0f}% &middot; acerto fora da amostra ~{p.acuracia:.0f}% &middot; regressão logística sobre {p.n} dias &middot; estimativa estatística, não garantia</span>
+      </div>
+    </div>
+    <div class="placar-drivers">Principais vieses de hoje: {drivers}</div>"""
+        top_classe = p.classe
+    else:
+        hero = ""
+        top_classe = a.regime_classe
+
     return f"""<section class="leitura">
-  <div class="regime {a.regime_classe}">
+  <div class="regime {top_classe}">
+    {hero}
     <div class="regime-head">
       <span class="badge">{html.escape(a.regime_rotulo)}</span>
       <span class="amp">{html.escape(a.amplitude)}</span>
@@ -245,6 +264,14 @@ def gerar_html(blocos: dict[str, list[Cotacao]], analise: Analise,
     border-left:6px solid var(--flat); border-radius:12px; padding:14px 18px; }}
   .regime.up {{ border-left-color:var(--up); }}
   .regime.down {{ border-left-color:var(--down); }}
+  .placar {{ display:flex; align-items:center; gap:16px; margin-bottom:10px; }}
+  .placar-num {{ font-size:46px; font-weight:800; line-height:1; font-variant-numeric:tabular-nums; }}
+  .regime.up .placar-num {{ color:var(--up); }}
+  .regime.down .placar-num {{ color:var(--down); }}
+  .regime.flat .placar-num {{ color:var(--flat); }}
+  .placar-lbl {{ font-size:15px; }}
+  .placar-meta {{ display:block; color:var(--dim); font-size:12px; margin-top:3px; }}
+  .placar-drivers {{ font-size:13px; opacity:.92; margin-bottom:10px; }}
   .regime-head {{ display:flex; align-items:center; gap:12px; margin-bottom:8px; }}
   .badge {{ font-size:16px; font-weight:800; letter-spacing:1px; padding:4px 14px;
     border-radius:7px; background:var(--flat); color:#fff; }}

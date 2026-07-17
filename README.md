@@ -105,5 +105,13 @@ variação via yfinance), `report.py` (HTML), `cli.py` (entrada).
 - ✅ **Visual vibrante + modo daltônico** — cores por bloco; toda variação é redundante
   (cor + seta ▲▼ + sinal +/−), nunca só cor. Botão alterna paleta colorblind-safe
   (azul/laranja + Okabe-Ito), persistida em localStorage.
-- ⏳ Próximo: alimentar dados p/ **testar o dia seguinte** (modelo preditivo sobre a cadeia
-  causal já mapeada); CME FedWatch; variação overnight; curva DI (B3); frente 2.
+- ✅ **Placar do Ibovespa (`analyze._placar`)** — quadro de topo com a **probabilidade de o
+  Ibov fechar em alta no próximo pregão**, via **regressão logística** (numpy, sem dep
+  pesada) sobre os leads que *antecedem* a abertura: Ásia/Europa do dia + fechamento de
+  ontem em NY (S&P/EWZ, defasados p/ evitar vazamento) + DXY. Acurácia reportada é
+  **fora da amostra** (split cronológico 80/20) — hoje ~54%, edge pequeno mas real acima da
+  base. Vieses do dia por relação univariada (estável). Rotulado como estimativa, não
+  garantia. Escolhi logística direta porque no Python 3.14 `statsmodels`/`sklearn` podem
+  não ter wheel; migração futura opcional p/ diagnósticos.
+- ⏳ Próximo: melhorar copy pt-BR do placar; CME FedWatch; variação overnight; curva DI
+  (B3); backtest formal do placar; frente 2 (extração das transcrições).
