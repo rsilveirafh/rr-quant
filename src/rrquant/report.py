@@ -206,8 +206,24 @@ def _barras_peso(pesos) -> str:
     return f'<div class="barchart">{"".join(rows)}</div>'
 
 
+def _historico_html(a: Analise) -> str:
+    if not a.hist_prob:
+        return ""
+    hits, total = a.hist_acerto
+    pct = (hits / total * 100) if total else 0
+    return f"""<div class="sub-card full">
+    <h3>Histórico da probabilidade <span class="hint">(walk-forward: cada dia previsto só com o passado &middot; {total} pregões)</span></h3>
+    {charts.hist_prob(a.hist_prob)}
+    <div class="hist-legend">
+      <span><span class="dot up"></span> Ibovespa subiu no dia</span>
+      <span><span class="dot down"></span> Ibovespa caiu</span>
+      <span class="hint">linha 50% = moeda ao ar &middot; acertou <b>{hits}/{total}</b> ({pct:.0f}%) — se a linha fica alta nos dias verdes e baixa nos vermelhos, há sinal</span>
+    </div>
+  </div>"""
+
+
 def _analise_placar_html(a: Analise) -> str:
-    """Card que explica COMO o placar chegou no número de hoje."""
+    """Card que explica COMO o placar chegou no número de hoje + histórico."""
     p = a.placar
     if not p or not p.contribs:
         return ""
@@ -217,6 +233,7 @@ def _analise_placar_html(a: Analise) -> str:
     {_barras_diverg(p.contribs)}
     <div class="analise-nota">À direita, a variável empurra a probabilidade para <b>alta</b>; à esquerda, para <b>baixa</b>. Os sinais saem do modelo conjunto (regressão logística), então podem diferir da leitura isolada de cada fator. Veja a aba <b>Metodologia</b> para como tudo é construído.</div>
   </div>
+  {_historico_html(a)}
 </section>"""
 
 
@@ -499,6 +516,12 @@ def gerar_html(blocos: dict[str, list[Cotacao]], analise: Analise,
   .bar-track.diverg {{ overflow:visible; }}
   .bar-zero {{ position:absolute; left:50%; top:-2px; width:1px; height:20px; background:var(--dim); }}
   .bar-val {{ font-variant-numeric:tabular-nums; font-weight:700; min-width:44px; text-align:right; }}
+  .histchart {{ width:100%; height:auto; margin-top:4px; }}
+  .ax {{ fill:var(--dim); font-size:10px; }}
+  .hist-legend {{ display:flex; gap:16px; flex-wrap:wrap; align-items:center; margin-top:8px;
+    font-size:12.5px; color:var(--dim); }}
+  .dot {{ display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:4px; }}
+  .dot.up {{ background:var(--up); }} .dot.down {{ background:var(--down); }}
 
   /* --- Grid de blocos --- */
   .grid {{ display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px; }}

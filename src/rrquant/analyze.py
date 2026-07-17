@@ -103,6 +103,8 @@ class Analise:
     notas: list[str] = field(default_factory=list)
     macro: Macro | None = None
     sparks: dict[str, list[float]] = field(default_factory=dict)
+    hist_prob: list[tuple[str, float, bool]] = field(default_factory=list)  # (data, prob%, subiu)
+    hist_acerto: tuple[int, int] = (0, 0)                                   # (acertos, total) walk-forward
     hist_ok: bool = False
 
 
@@ -499,6 +501,45 @@ def _placar(analise: Analise, rets: pd.DataFrame) -> None:
                             drivers, contribs, pesos)
 
 
+def _historico_prob(rets: pd.DataFrame, janela: int = 60) -> tuple[list, tuple[int, int]]:
+    """Série walk-forward da probabilidade: p/ cada dia da janela, treina SÓ com o
+    passado e prevê aquele dia. Devolve [(data, prob%, subiu?)] e (acertos, total)."""
+    need = ["^N225", "^HSI", "^KS11", "^GDAXI", "^STOXX50E", "^GSPC", "EWZ", "DX-Y.NYB", "^BVSP"]
+    if any(c not in rets for c in need):
+        return [], (0, 0)
+    df = rets[need].dropna()
+    feat = pd.DataFrame({
+        "Ásia":            df[["^N225", "^HSI", "^KS11"]].mean(axis=1),
+        "Europa":          df[["^GDAXI", "^STOXX50E"]].mean(axis=1),
+        "S&P 500 (ont.)":  df["^GSPC"].shift(1),
+        "EWZ (ont.)":      df["EWZ"].shift(1),
+        "DXY":             df["DX-Y.NYB"],
+    })
+    dados = feat.copy()
+    dados["y"] = (df["^BVSP"] > 0).astype(float)
+    dados = dados.dropna()
+    X = dados[feat.columns].values
+    yv = dados["y"].values
+    datas = [d.strftime("%d/%m") for d in dados.index]
+    n = len(X)
+
+    janela = min(janela, n - 120)   # exige treino mínimo antes da janela
+    if janela < 10:
+        return [], (0, 0)
+
+    pontos, hits = [], 0
+    for i in range(n - janela, n):
+        mu, sd = X[:i].mean(0), X[:i].std(0)
+        sd[sd == 0] = 1.0
+        w, b = _fit_logit((X[:i] - mu) / sd, yv[:i])
+        p = float(_sigmoide(((X[i] - mu) / sd) @ w + b)) * 100
+        subiu = bool(yv[i] > 0.5)
+        pontos.append((datas[i], p, subiu))
+        if (p >= 50) == subiu:
+            hits += 1
+    return pontos, (hits, janela)
+
+
 def analisar(cotacoes: list[Cotacao], macro: Macro | None = None,
              periodo_hist: str = "2y") -> Analise:
     analise = Analise()
@@ -510,6 +551,7 @@ def analisar(cotacoes: list[Cotacao], macro: Macro | None = None,
     _regime(analise, idx, cotacoes)
     if analise.hist_ok:
         _placar(analise, rets)
+        analise.hist_prob, analise.hist_acerto = _historico_prob(rets)
         # sparklines: últimos ~30 pregões (retorno acumulado normalizado)
         for tk in ("^BVSP", "BZ=F", "BRL=X", "^VIX", "GC=F"):
             if tk in rets:

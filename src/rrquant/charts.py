@@ -47,6 +47,52 @@ def gauge(pct: float, cor: str = "var(--up)",
 </svg>"""
 
 
+def hist_prob(pontos: list[tuple[str, float, bool]]) -> str:
+    """Linha da probabilidade prevista ao longo dos dias (walk-forward).
+
+    Pontos = [(data, prob%, subiu?)]. A linha é a probabilidade; cada ponto é
+    colorido pelo que o Ibov REALMENTE fez naquele dia (verde=subiu, vermelho=caiu).
+    Se a linha fica alta nos dias verdes e baixa nos vermelhos, há sinal.
+    """
+    if len(pontos) < 2:
+        return ""
+    W, H = 840.0, 220.0
+    pl, pr, pt, pb = 34.0, 12.0, 14.0, 24.0
+    n = len(pontos)
+    xs = [pl + (W - pl - pr) * i / (n - 1) for i in range(n)]
+
+    def yy(p):
+        return pt + (H - pt - pb) * (1 - p / 100.0)
+
+    probs = [q for _d, q, _u in pontos]
+    linha = " ".join(f"{x:.1f},{yy(q):.1f}" for x, q in zip(xs, probs))
+    area = f"{xs[0]:.1f},{yy(probs[0]):.1f} " + linha + f" {xs[-1]:.1f},{H - pb:.1f} {xs[0]:.1f},{H - pb:.1f}"
+
+    grid = ""
+    for gv in (0, 50, 100):
+        y = yy(gv)
+        dash = ' stroke-dasharray="5,4"' if gv == 50 else ""
+        grid += (f'<line x1="{pl}" y1="{y:.1f}" x2="{W - pr}" y2="{y:.1f}" '
+                 f'stroke="var(--line)" stroke-width="1"{dash}/>'
+                 f'<text x="{pl - 6}" y="{y + 3:.1f}" text-anchor="end" class="ax">{gv}</text>')
+
+    dots = "".join(
+        f'<circle cx="{x:.1f}" cy="{yy(q):.1f}" r="3.2" '
+        f'fill="{"var(--up)" if u else "var(--down)"}"/>'
+        for x, (_d, q, u) in zip(xs, pontos)
+    )
+    d0, d1 = pontos[0][0], pontos[-1][0]
+    eixo_x = (f'<text x="{pl}" y="{H - 4:.0f}" text-anchor="start" class="ax">{d0}</text>'
+              f'<text x="{W - pr}" y="{H - 4:.0f}" text-anchor="end" class="ax">{d1}</text>')
+    return f"""<svg class="histchart" viewBox="0 0 {W:.0f} {H:.0f}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="histórico da probabilidade">
+  {grid}
+  <polygon points="{area}" fill="var(--b0)" opacity="0.10"/>
+  <polyline points="{linha}" fill="none" stroke="var(--b0)" stroke-width="2" stroke-linejoin="round"/>
+  {dots}
+  {eixo_x}
+</svg>"""
+
+
 def sparkline(vals: list[float], cor: str = "currentColor") -> str:
     """Mini-linha (últimos N pontos), normalizada, com área suave."""
     if not vals or len(vals) < 2:

@@ -123,5 +123,10 @@ variação via yfinance), `report.py` (HTML), `cli.py` (entrada).
   as contribuições de cada variável hoje (barras divergentes); e uma **aba Metodologia**
   explicando o que é "próximo pregão", as 5 variáveis (com a lógica de defasagem anti-vazamento),
   o modelo, a validação fora da amostra e como ler o medidor + gráfico de pesos das variáveis.
+- ✅ **Histórico da probabilidade (walk-forward)** — `analyze._historico_prob` reconstrói,
+  dia a dia, a probabilidade que o placar teria dado (cada dia previsto por um modelo
+  treinado **só com o passado** — sem look-ahead). Gráfico de linha (`charts.hist_prob`) com
+  cada dia colorido pelo que o Ibov realmente fez (verde=subiu/vermelho=caiu) e a taxa de
+  acerto da janela. É o primeiro backtest — base pro "testar o dia seguinte".
 - ⏳ Próximo: migrar o placar p/ `statsmodels`/`sklearn` (diagnósticos); CME FedWatch;
-  variação overnight; curva DI (B3); backtest formal do placar; frente 2 (transcrições).
+  variação overnight; curva DI (B3); backtest completo (retorno, não só acerto); frente 2.
