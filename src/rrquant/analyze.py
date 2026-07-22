@@ -406,6 +406,52 @@ def _commodities(analise: Analise, idx: dict[str, Cotacao]) -> None:
 # negociam junto/depois do Ibov no mesmo dia — por isso defasados 1 dia).
 _FATORES = ["Ásia", "Europa", "S&P 500 (ont.)", "EWZ (ont.)", "DXY"]
 
+# Blocos que viram média — ignoram NaN, então um mercado atrasado (ex.: Coreia sem
+# barra há dias) não derruba o dia inteiro nem trunca a série no ticker mais atrasado.
+_ASIA = ["^N225", "^HSI", "^KS11"]
+_EUROPA = ["^GDAXI", "^STOXX50E"]
+
+
+def _montar_features(rets: pd.DataFrame):
+    """Monta o quadro de leads (colunas = _FATORES) + alvo y, SEM exigir que os 9
+    tickers tenham barra no mesmo dia. As médias de bloco (Ásia/Europa) ignoram NaN;
+    o dia só é descartado se faltar um lead essencial (S&P/EWZ/DXY) ou o alvo (Ibov).
+
+    Antes usávamos `rets[9 tickers].dropna()` (how="any"): bastava um mercado atrasar
+    (Coreia parou em 16/07) pra série inteira parar naquele dia e ~30% do histórico
+    virar pó na interseção de feriados. Aqui a série acompanha o Ibov.
+
+    Devolve (feat, leads_hoje) ou None:
+      feat       — DataFrame por data, colunas _FATORES + "y".
+      leads_hoje — leads mais recentes p/ prever o PRÓXIMO pregão (S&P/EWZ de hoje,
+                   que serão o "de ontem" na próxima sessão)."""
+    essenciais = ["^GSPC", "EWZ", "DX-Y.NYB", "^BVSP"]
+    if any(c not in rets for c in essenciais):
+        return None
+    asia_cols = [c for c in _ASIA if c in rets]
+    eur_cols = [c for c in _EUROPA if c in rets]
+    if not asia_cols or not eur_cols:
+        return None
+
+    asia = rets[asia_cols].mean(axis=1)      # skipna=True por padrão
+    europa = rets[eur_cols].mean(axis=1)
+    feat = pd.DataFrame({
+        "Ásia":            asia,
+        "Europa":          europa,
+        "S&P 500 (ont.)":  rets["^GSPC"].shift(1),   # negocia junto/depois do Ibov → ontem
+        "EWZ (ont.)":      rets["EWZ"].shift(1),
+        "DXY":             rets["DX-Y.NYB"],
+    })
+    feat["y"] = (rets["^BVSP"] > 0).astype(float)
+    feat = feat[rets["^BVSP"].notna()].dropna()   # alinha ao calendário do Ibov
+
+    leads_hoje = np.array([
+        asia.dropna().iloc[-1], europa.dropna().iloc[-1],
+        rets["^GSPC"].dropna().iloc[-1], rets["EWZ"].dropna().iloc[-1],
+        rets["DX-Y.NYB"].dropna().iloc[-1],
+    ], dtype=float)
+    return feat, leads_hoje
+
 
 def _sigmoide(z):
     return 1.0 / (1.0 + np.exp(-np.clip(z, -30, 30)))
@@ -425,31 +471,14 @@ def _fit_logit(X, y, iters=800, lr=0.5, l2=1.0):
 
 
 def _placar(analise: Analise, rets: pd.DataFrame) -> None:
-    need = ["^N225", "^HSI", "^KS11", "^GDAXI", "^STOXX50E", "^GSPC", "EWZ", "DX-Y.NYB", "^BVSP"]
-    if any(c not in rets for c in need):
+    montado = _montar_features(rets)
+    if montado is None:
         return
-    df = rets[need].dropna()
-    if len(df) < 120:
-        return
-
-    asia = df[["^N225", "^HSI", "^KS11"]].mean(axis=1)
-    europa = df[["^GDAXI", "^STOXX50E"]].mean(axis=1)
-    # S&P e EWZ negociam junto/depois do Ibov → usar o FECHAMENTO DE ONTEM (shift 1)
-    feat = pd.DataFrame({
-        "Ásia":            asia,
-        "Europa":          europa,
-        "S&P 500 (ont.)":  df["^GSPC"].shift(1),
-        "EWZ (ont.)":      df["EWZ"].shift(1),
-        "DXY":             df["DX-Y.NYB"],
-    })
-    ibov_ret = df["^BVSP"]                       # retorno do Ibov na sessão (alvo)
-    dados = feat.copy()
-    dados["y"] = (ibov_ret > 0).astype(float)
-    dados = dados.dropna()
+    dados, leads = montado
     if len(dados) < 120:
         return
 
-    Xall = dados[feat.columns].values
+    Xall = dados[_FATORES].values
     yall = dados["y"].values
     mu, sd = Xall.mean(0), Xall.std(0)
     sd[sd == 0] = 1.0
@@ -468,12 +497,8 @@ def _placar(analise: Analise, rets: pd.DataFrame) -> None:
     w, b = _fit_logit(Xs, yall)
     base = float(yall.mean()) * 100
 
-    # Previsão p/ o PRÓXIMO pregão: usa os leads mais recentes (Ásia/Europa/DXY de
-    # hoje + fechamento de hoje em NY, que será o "de ontem" na próxima sessão).
-    leads = np.array([
-        asia.iloc[-1], europa.iloc[-1], df["^GSPC"].iloc[-1],
-        df["EWZ"].iloc[-1], df["DX-Y.NYB"].iloc[-1],
-    ], dtype=float)
+    # Previsão p/ o PRÓXIMO pregão: leads mais recentes (Ásia/Europa/DXY de hoje +
+    # fechamento de hoje em NY, que será o "de ontem" na próxima sessão) — já montados.
     x_hoje = (leads - mu) / sd
     prob = float(_sigmoide(x_hoje @ w + b)) * 100
 
@@ -504,21 +529,11 @@ def _placar(analise: Analise, rets: pd.DataFrame) -> None:
 def _historico_prob(rets: pd.DataFrame, janela: int = 60) -> tuple[list, tuple[int, int]]:
     """Série walk-forward da probabilidade: p/ cada dia da janela, treina SÓ com o
     passado e prevê aquele dia. Devolve [(data, prob%, subiu?)] e (acertos, total)."""
-    need = ["^N225", "^HSI", "^KS11", "^GDAXI", "^STOXX50E", "^GSPC", "EWZ", "DX-Y.NYB", "^BVSP"]
-    if any(c not in rets for c in need):
+    montado = _montar_features(rets)
+    if montado is None:
         return [], (0, 0)
-    df = rets[need].dropna()
-    feat = pd.DataFrame({
-        "Ásia":            df[["^N225", "^HSI", "^KS11"]].mean(axis=1),
-        "Europa":          df[["^GDAXI", "^STOXX50E"]].mean(axis=1),
-        "S&P 500 (ont.)":  df["^GSPC"].shift(1),
-        "EWZ (ont.)":      df["EWZ"].shift(1),
-        "DXY":             df["DX-Y.NYB"],
-    })
-    dados = feat.copy()
-    dados["y"] = (df["^BVSP"] > 0).astype(float)
-    dados = dados.dropna()
-    X = dados[feat.columns].values
+    dados, _leads = montado
+    X = dados[_FATORES].values
     yv = dados["y"].values
     datas = [d.strftime("%d/%m") for d in dados.index]
     n = len(X)
