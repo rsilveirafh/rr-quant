@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass
+from pathlib import Path
 
 import pandas as pd
 import yfinance as yf
@@ -17,6 +18,12 @@ import yfinance as yf
 from . import tickers as T
 
 warnings.filterwarnings("ignore")
+
+# O yfinance persiste o cache de fusos/cookies por padrão no perfil do usuário.
+# Mantê-lo no projeto torna a execução portátil (inclusive em ambientes isolados).
+_CACHE_YFINANCE = Path(__file__).resolve().parents[2] / "data" / "yfinance-cache"
+_CACHE_YFINANCE.mkdir(parents=True, exist_ok=True)
+yf.set_tz_cache_location(_CACHE_YFINANCE)
 
 
 @dataclass
