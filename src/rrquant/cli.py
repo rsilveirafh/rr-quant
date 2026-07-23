@@ -72,8 +72,11 @@ def main(argv: list[str] | None = None) -> int:
     if smc_ibov:
         nb = sum(1 for e in smc_ibov.eventos if e.tipo == "BOS")
         nc = sum(1 for e in smc_ibov.eventos if e.tipo == "CHoCH")
+        obf = sum(1 for b in smc_ibov.obs if not b.mitigado)
+        fvo = sum(1 for f in smc_ibov.fvgs if not f.mitigado)
         print(f"  SMC Ibovespa ({smc_ibov.timeframe}): tendencia {smc_ibov.trend or 'neutra'} "
-              f"| {len(smc_ibov.swings)} swings, {nb} BOS, {nc} CHoCH na janela.")
+              f"| {len(smc_ibov.swings)} swings, {nb} BOS, {nc} CHoCH, "
+              f"{obf}/{len(smc_ibov.obs)} OB frescos, {fvo}/{len(smc_ibov.fvgs)} FVG abertos.")
     else:
         print("  SMC Ibovespa: sem OHLC nesta execucao.")
     print(f"  Dashboard: {SAIDA}")

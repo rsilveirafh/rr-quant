@@ -162,6 +162,49 @@ def candles(smc) -> str:
             f'<text x="{x1 + 3:.1f}" y="{y - 4:.1f}" class="ev-lbl {cls}">{e.tipo}</text>'
         )
 
+    right = W - pr
+
+    # Order Blocks (fundo): demanda=roxo, oferta=marrom; estendem até a borda direita.
+    # O OB mais recente de cada lado ganha borda ("ativo"), pra sempre haver referência.
+    zob = []
+    desenhados = smc.obs[-6:]
+    ult_dem = max((b.idx for b in desenhados if b.tipo == "compra"), default=None)
+    ult_sup = max((b.idx for b in desenhados if b.tipo == "venda"), default=None)
+    for b in desenhados:
+        x0 = X(b.idx) - cw / 2
+        y0, y1 = Y(b.topo), Y(b.base)
+        cls = "demand" if b.tipo == "compra" else "supply"
+        ativo = b.idx == (ult_dem if b.tipo == "compra" else ult_sup)
+        extra = " ativo" if ativo else ""
+        op = "0.26" if ativo else ("0.08" if b.mitigado else "0.18")
+        rot = ("OB compra" if b.tipo == "compra" else "OB venda") + (" (mit.)" if b.mitigado else "")
+        zob.append(
+            f'<rect x="{x0:.1f}" y="{y0:.1f}" width="{right - x0:.1f}" height="{max(1.0, y1 - y0):.1f}" class="ob {cls}{extra}" fill-opacity="{op}"/>'
+            f'<text x="{x0 + 3:.1f}" y="{y0 + 11:.1f}" class="zlbl {cls}">{rot}</text>'
+        )
+
+    # Fair Value Gaps: só os ABERTOS (mitigados sumiram), os mais recentes.
+    zfvg = []
+    for f in [x for x in smc.fvgs if not x.mitigado][-6:]:
+        x0 = X(f.idx) - cw / 2
+        y0, y1 = Y(f.topo), Y(f.base)
+        zfvg.append(
+            f'<rect x="{x0:.1f}" y="{y0:.1f}" width="{right - x0:.1f}" height="{max(1.0, y1 - y0):.1f}" class="fvg" fill-opacity="0.17"/>'
+        )
+
+    # Liquidez: linhas horizontais amarelas; varrida = pontilhada e apagada.
+    zliq = []
+    for q in smc.liquidez:
+        y = Y(q.nivel)
+        x0 = X(q.x_ini)
+        dash = '2,3' if q.varrido else '6,3'
+        op = "0.4" if q.varrido else "0.9"
+        rot = q.tipo + (" ✗" if q.varrido else "")
+        zliq.append(
+            f'<line x1="{x0:.1f}" y1="{y:.1f}" x2="{right:.1f}" y2="{y:.1f}" class="liq" stroke-dasharray="{dash}" opacity="{op}"/>'
+            f'<text x="{right - 2:.1f}" y="{y - 3:.1f}" class="liq-lbl" text-anchor="end">{rot}</text>'
+        )
+
     d0 = df.index[0].strftime("%d/%m")
     d1 = df.index[-1].strftime("%d/%m")
     eixo = (f'<text x="{pl}" y="{H - 8:.0f}" class="ax" text-anchor="start">{d0}</text>'
@@ -169,9 +212,12 @@ def candles(smc) -> str:
 
     return f"""<svg class="candles" viewBox="0 0 {W:.0f} {H:.0f}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="candlestick com estrutura SMC">
   {grade}
+  <g class="lyr lyr-ob">{''.join(zob)}</g>
+  <g class="lyr lyr-fvg">{''.join(zfvg)}</g>
+  <g class="lyr lyr-liq">{''.join(zliq)}</g>
   {''.join(velas)}
-  {''.join(sw)}
-  {''.join(ev)}
+  <g class="lyr lyr-swings">{''.join(sw)}</g>
+  <g class="lyr lyr-estrutura">{''.join(ev)}</g>
   {eixo}
 </svg>"""
 

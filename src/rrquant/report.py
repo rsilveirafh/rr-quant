@@ -393,27 +393,45 @@ def _smc_html(smc) -> str:
     ult = smc.df.index[-1].strftime("%d/%m/%Y")
     n_bos = sum(1 for e in smc.eventos if e.tipo == "BOS")
     n_choch = sum(1 for e in smc.eventos if e.tipo == "CHoCH")
-    return f"""<section class="tab smc" id="tab-smc" hidden>
+    ob_fresh = sum(1 for b in smc.obs if not b.mitigado)
+    fvg_open = sum(1 for f in smc.fvgs if not f.mitigado)
+    return f"""<section class="tab smc hide-fvg" id="tab-smc" hidden>
   <div class="sub-card full">
     <h3>Estrutura de mercado &mdash; {html.escape(smc.nome)}
-      <span class="hint">({html.escape(smc.timeframe)} · fatia 1: swings + BOS/CHoCH · força {smc.forca})</span></h3>
+      <span class="hint">({html.escape(smc.timeframe)} · swings + BOS/CHoCH + OB/FVG/liquidez · força {smc.forca})</span></h3>
     <div class="smc-head">
       <span class="smc-badge {tcls}">Tendência estrutural: {trot}</span>
-      <span class="hint">último candle {ult} &middot; {n_bos} BOS &middot; {n_choch} CHoCH na janela</span>
+      <span class="hint">último candle {ult} &middot; {n_bos} BOS · {n_choch} CHoCH &middot;
+        {ob_fresh} OB frescos · {fvg_open} FVG abertos na janela</span>
+    </div>
+    <div class="smc-toggles">
+      <span class="tgl-lbl">Camadas</span>
+      <label><input type="checkbox" checked onchange="tglLayer('swings',this.checked)"> swings</label>
+      <label><input type="checkbox" checked onchange="tglLayer('estrutura',this.checked)"> BOS/CHoCH</label>
+      <label><input type="checkbox" checked onchange="tglLayer('ob',this.checked)"> Order Blocks</label>
+      <label><input type="checkbox" onchange="tglLayer('fvg',this.checked)"> FVG</label>
+      <label><input type="checkbox" checked onchange="tglLayer('liq',this.checked)"> Liquidez</label>
     </div>
     {charts.candles(smc)}
     <div class="smc-legend">
-      <span><span class="sw-dot"></span> swing point (fractal)</span>
-      <span><span class="ev-dash up"></span> rompimento de alta (fechou acima do topo)</span>
-      <span><span class="ev-dash down"></span> rompimento de baixa (fechou abaixo do fundo)</span>
+      <span><span class="sw-dot"></span> swing point</span>
+      <span><span class="ev-dash up"></span> rompimento alta</span>
+      <span><span class="ev-dash down"></span> rompimento baixa</span>
+      <span><span class="z-swatch" style="background:var(--smc-demand)"></span> OB compra (demanda)</span>
+      <span><span class="z-swatch" style="background:var(--smc-supply)"></span> OB venda (oferta)</span>
+      <span><span class="z-swatch" style="background:var(--smc-fvg)"></span> FVG</span>
+      <span><span class="z-swatch" style="background:var(--smc-liq)"></span> liquidez (BSL/SSL)</span>
     </div>
     <div class="analise-nota">
-      <b>Como ler:</b> <b>BOS</b> (Break of Structure) = rompimento a favor da tendência
-      vigente → continuação. <b>CHoCH</b> (Change of Character) = primeiro rompimento
-      <i>contra</i> a tendência → possível virada. O gatilho é o <b>fechamento</b> além do
-      swing, não o pavio. Os últimos <b>{smc.provisorios} candles</b> são provisórios (um swing
-      só se confirma {smc.provisorios} candles depois de formado). <b>Próximas fatias:</b>
-      Order Blocks, FVG, liquidez, timeframe maior (semanal) e a caixa "o que eu faria agora".
+      <b>Como ler:</b> <b>BOS</b> = rompimento a favor da tendência (continuação); <b>CHoCH</b>
+      = primeiro rompimento contra (possível virada); gatilho por <b>fechamento</b>, não pavio.
+      <b>Order Block</b> = último candle contrário antes do deslocamento que rompeu estrutura
+      (compra/demanda em roxo, venda/oferta em marrom) — apagado = já mitigado. <b>FVG</b> =
+      desequilíbrio de 3 candles (zona azul), some quando o preço volta e preenche.
+      <b>Liquidez</b> = topos/fundos iguais (linha amarela; <b>✗</b> = já varrida). As zonas se
+      estendem até a direita porque continuam válidas até o preço as tocar. Últimos
+      <b>{smc.provisorios} candles</b> provisórios. <b>Próxima fatia:</b> timeframe maior
+      (semanal) + a regra do conflito HTF×LTF + caixa "o que eu faria agora".
     </div>
   </div>
 </section>"""
@@ -443,6 +461,7 @@ def gerar_html(blocos: dict[str, list[Cotacao]], analise: Analise,
     --up:#1ed760; --down:#ff4b5c; --flat:#8b94a3;
     --b0:#ff5d8f; --b1:#9b5cff; --b2:#00c2d8; --b3:#ffb020;
     --b4:#ff7a2f; --b5:#12d19e; --b6:#ff4d6d; --b7:#4d7dff;
+    --smc-supply:#b06a2c; --smc-demand:#9b5cff; --smc-fvg:#4d7dff; --smc-liq:#ffb020;
   }}
   @media (prefers-color-scheme: light) {{
     :root {{ --bg:#f4f6fa; --card:#fff; --ink:#161a21; --dim:#5d6b7d; --line:#e3e7ee;
@@ -452,6 +471,7 @@ def gerar_html(blocos: dict[str, list[Cotacao]], analise: Analise,
     --up:#0072B2; --down:#E69F00;
     --b0:#E69F00; --b1:#56B4E9; --b2:#009E73; --b3:#F0E442;
     --b4:#D55E00; --b5:#0072B2; --b6:#CC79A7; --b7:#999999;
+    --smc-supply:#D55E00; --smc-demand:#CC79A7; --smc-fvg:#56B4E9; --smc-liq:#F0E442;
   }}
   * {{ box-sizing:border-box; }}
   body {{ margin:0; background:var(--bg); color:var(--ink);
@@ -569,6 +589,27 @@ def gerar_html(blocos: dict[str, list[Cotacao]], analise: Analise,
   .candles .ev.up {{ stroke:var(--up); }} .candles .ev.down {{ stroke:var(--down); }}
   .candles .ev-lbl {{ font-size:11px; font-weight:700; }}
   .candles .ev-lbl.up {{ fill:var(--up); }} .candles .ev-lbl.down {{ fill:var(--down); }}
+  .candles .ob.demand {{ fill:var(--smc-demand); }}
+  .candles .ob.supply {{ fill:var(--smc-supply); }}
+  .candles .ob.ativo {{ stroke-width:1.4; }}
+  .candles .ob.demand.ativo {{ stroke:var(--smc-demand); }}
+  .candles .ob.supply.ativo {{ stroke:var(--smc-supply); }}
+  .candles .fvg {{ fill:var(--smc-fvg); }}
+  .candles .liq {{ stroke:var(--smc-liq); stroke-width:1.4; }}
+  .candles .liq-lbl {{ fill:var(--smc-liq); font-size:10.5px; font-weight:700; }}
+  .candles .zlbl {{ font-size:10px; font-weight:700; }}
+  .candles .zlbl.demand {{ fill:var(--smc-demand); }}
+  .candles .zlbl.supply {{ fill:var(--smc-supply); }}
+  .z-swatch {{ display:inline-block; width:11px; height:11px; border-radius:3px;
+    margin-right:4px; vertical-align:middle; opacity:.85; }}
+  .smc-toggles {{ display:flex; gap:14px; flex-wrap:wrap; align-items:center; margin:4px 0 6px;
+    font-size:13px; padding:8px 12px; background:var(--card); border:1px solid var(--line); border-radius:10px; }}
+  .smc-toggles .tgl-lbl {{ color:var(--dim); font-weight:600; text-transform:uppercase;
+    font-size:11px; letter-spacing:.5px; }}
+  .smc-toggles label {{ display:inline-flex; align-items:center; gap:5px; cursor:pointer; user-select:none; }}
+  .smc-toggles input {{ accent-color:var(--b2); cursor:pointer; }}
+  .smc.hide-swings .lyr-swings, .smc.hide-estrutura .lyr-estrutura,
+  .smc.hide-ob .lyr-ob, .smc.hide-fvg .lyr-fvg, .smc.hide-liq .lyr-liq {{ display:none; }}
   .smc-head {{ display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin-bottom:6px; }}
   .smc-badge {{ font-weight:800; letter-spacing:.5px; padding:4px 12px; border-radius:8px;
     background:var(--flat); color:#fff; font-size:13px; }}
@@ -642,6 +683,10 @@ def gerar_html(blocos: dict[str, list[Cotacao]], analise: Analise,
   function showTab(name) {{
     document.querySelectorAll('.tab').forEach(function (t) {{ t.hidden = (t.id !== 'tab-' + name); }});
     document.querySelectorAll('.tabbtn').forEach(function (b) {{ b.classList.toggle('active', b.dataset.tab === name); }});
+  }}
+  function tglLayer(name, on) {{
+    var s = document.getElementById('tab-smc');
+    if (s) s.classList.toggle('hide-' + name, !on);
   }}
 </script>
 </body>
