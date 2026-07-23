@@ -12,7 +12,7 @@ import datetime as dt
 import webbrowser
 from pathlib import Path
 
-from . import analyze, collect, macro as macro_mod, report
+from . import analyze, collect, macro as macro_mod, report, smc as smc_mod
 
 RAIZ = Path(__file__).resolve().parents[2]
 SAIDA = RAIZ / "output" / "dashboard.html"
@@ -32,6 +32,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="rrquant", description="Varredura diaria de mercado")
     parser.add_argument("--abrir", action="store_true", help="abre o dashboard no navegador")
     parser.add_argument("--periodo", default="7d", help="periodo yfinance (default 7d)")
+    parser.add_argument("--forca", type=int, default=4,
+                        help="força do fractal p/ swings da aba SMC (default 4)")
     args = parser.parse_args(argv)
 
     print("Coletando dados de mercado (yfinance)...")
@@ -44,11 +46,17 @@ def main(argv: list[str] | None = None) -> int:
     print("Analisando (regime, cadeia, commodities, probabilidades históricas)...")
     analise = analyze.analisar(cotacoes, macro=macro)
 
+    print("SMC: estrutura do Ibovespa (OHLC diário)...")
+    ohlc_ibov = collect.coletar_ohlc("^BVSP", periodo="2y", intervalo="1d")
+    smc_ibov = smc_mod.analisar("^BVSP", "Ibovespa", ohlc_ibov,
+                                timeframe="Diário", forca=args.forca)
+
     datas = sorted({c.data for c in cotacoes if c.data})
     data_dados = datas[-1] if datas else None
     gerado_em = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
 
-    html = report.gerar_html(blocos, analise, gerado_em=gerado_em, data_dados=data_dados)
+    html = report.gerar_html(blocos, analise, gerado_em=gerado_em,
+                             data_dados=data_dados, smc=smc_ibov)
     SAIDA.parent.mkdir(parents=True, exist_ok=True)
     SAIDA.write_text(html, encoding="utf-8")
 
@@ -61,6 +69,13 @@ def main(argv: list[str] | None = None) -> int:
     ok = sum(1 for c in cotacoes if c.ok)
     _resumo_terminal(blocos)
     print(f"\n  {ok}/{len(cotacoes)} ativos com dado. Ultimo fechamento ~ {data_dados}.")
+    if smc_ibov:
+        nb = sum(1 for e in smc_ibov.eventos if e.tipo == "BOS")
+        nc = sum(1 for e in smc_ibov.eventos if e.tipo == "CHoCH")
+        print(f"  SMC Ibovespa ({smc_ibov.timeframe}): tendencia {smc_ibov.trend or 'neutra'} "
+              f"| {len(smc_ibov.swings)} swings, {nb} BOS, {nc} CHoCH na janela.")
+    else:
+        print("  SMC Ibovespa: sem OHLC nesta execucao.")
     print(f"  Dashboard: {SAIDA}")
 
     if args.abrir:

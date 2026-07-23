@@ -384,8 +384,43 @@ def _leitura_html(a: Analise) -> str:
 </section>"""
 
 
+def _smc_html(smc) -> str:
+    if smc is None:
+        return ('<section class="tab smc" id="tab-smc" hidden><div class="sub-card full">'
+                '<p class="hint">Sem dados OHLC para a análise SMC nesta execução.</p></div></section>')
+    tcls, trot = {"alta": ("up", "ALTISTA"), "baixa": ("down", "BAIXISTA")}.get(
+        smc.trend, ("flat", "NEUTRA"))
+    ult = smc.df.index[-1].strftime("%d/%m/%Y")
+    n_bos = sum(1 for e in smc.eventos if e.tipo == "BOS")
+    n_choch = sum(1 for e in smc.eventos if e.tipo == "CHoCH")
+    return f"""<section class="tab smc" id="tab-smc" hidden>
+  <div class="sub-card full">
+    <h3>Estrutura de mercado &mdash; {html.escape(smc.nome)}
+      <span class="hint">({html.escape(smc.timeframe)} · fatia 1: swings + BOS/CHoCH · força {smc.forca})</span></h3>
+    <div class="smc-head">
+      <span class="smc-badge {tcls}">Tendência estrutural: {trot}</span>
+      <span class="hint">último candle {ult} &middot; {n_bos} BOS &middot; {n_choch} CHoCH na janela</span>
+    </div>
+    {charts.candles(smc)}
+    <div class="smc-legend">
+      <span><span class="sw-dot"></span> swing point (fractal)</span>
+      <span><span class="ev-dash up"></span> rompimento de alta (fechou acima do topo)</span>
+      <span><span class="ev-dash down"></span> rompimento de baixa (fechou abaixo do fundo)</span>
+    </div>
+    <div class="analise-nota">
+      <b>Como ler:</b> <b>BOS</b> (Break of Structure) = rompimento a favor da tendência
+      vigente → continuação. <b>CHoCH</b> (Change of Character) = primeiro rompimento
+      <i>contra</i> a tendência → possível virada. O gatilho é o <b>fechamento</b> além do
+      swing, não o pavio. Os últimos <b>{smc.provisorios} candles</b> são provisórios (um swing
+      só se confirma {smc.provisorios} candles depois de formado). <b>Próximas fatias:</b>
+      Order Blocks, FVG, liquidez, timeframe maior (semanal) e a caixa "o que eu faria agora".
+    </div>
+  </div>
+</section>"""
+
+
 def gerar_html(blocos: dict[str, list[Cotacao]], analise: Analise,
-               gerado_em: str, data_dados: str | None) -> str:
+               gerado_em: str, data_dados: str | None, smc=None) -> str:
     idx = {c.ticker: c for cs in blocos.values() for c in cs}
     secoes = "\n".join(_bloco_html(nome, cs, i) for i, (nome, cs) in enumerate(blocos.items()))
     todos = list(idx.values())
@@ -421,7 +456,7 @@ def gerar_html(blocos: dict[str, list[Cotacao]], analise: Analise,
   * {{ box-sizing:border-box; }}
   body {{ margin:0; background:var(--bg); color:var(--ink);
     font:15px/1.45 -apple-system,Segoe UI,Roboto,sans-serif; padding:22px 28px; }}
-  header, .tabbar, .kpis, .analise, .leitura, .grid, .metodo, footer {{ max-width:min(1600px, 96vw); margin-left:auto; margin-right:auto; }}
+  header, .tabbar, .kpis, .analise, .leitura, .grid, .metodo, .smc, footer {{ max-width:min(1600px, 96vw); margin-left:auto; margin-right:auto; }}
   header {{ margin-bottom:18px; display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; }}
   h1 {{ font-size:22px; margin:0 0 4px; letter-spacing:.3px;
     background:linear-gradient(90deg,var(--b0),var(--b2),var(--b5));
@@ -523,6 +558,29 @@ def gerar_html(blocos: dict[str, list[Cotacao]], analise: Analise,
   .dot {{ display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:4px; }}
   .dot.up {{ background:var(--up); }} .dot.down {{ background:var(--down); }}
 
+  /* --- SMC (candlestick + estrutura) --- */
+  .candles {{ width:100%; height:auto; margin:6px 0 2px; }}
+  .candles .wick {{ stroke-width:1; }}
+  .candles .wick.up {{ stroke:var(--up); }} .candles .wick.down {{ stroke:var(--down); }}
+  .candles .body.up {{ fill:var(--up); stroke:var(--up); }}
+  .candles .body.down {{ fill:var(--down); stroke:var(--down); }}
+  .candles .sw-h, .candles .sw-l {{ fill:var(--dim); }}
+  .candles .ev {{ stroke-width:1.5; }}
+  .candles .ev.up {{ stroke:var(--up); }} .candles .ev.down {{ stroke:var(--down); }}
+  .candles .ev-lbl {{ font-size:11px; font-weight:700; }}
+  .candles .ev-lbl.up {{ fill:var(--up); }} .candles .ev-lbl.down {{ fill:var(--down); }}
+  .smc-head {{ display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin-bottom:6px; }}
+  .smc-badge {{ font-weight:800; letter-spacing:.5px; padding:4px 12px; border-radius:8px;
+    background:var(--flat); color:#fff; font-size:13px; }}
+  .smc-badge.up {{ background:var(--up); }} .smc-badge.down {{ background:var(--down); }}
+  .smc-legend {{ display:flex; gap:16px; flex-wrap:wrap; align-items:center; margin-top:8px;
+    font-size:12.5px; color:var(--dim); }}
+  .sw-dot {{ display:inline-block; width:8px; height:8px; border-radius:50%;
+    background:var(--dim); margin-right:4px; vertical-align:middle; }}
+  .ev-dash {{ display:inline-block; width:16px; border-top:2px dashed var(--flat);
+    margin-right:4px; vertical-align:middle; }}
+  .ev-dash.up {{ border-top-color:var(--up); }} .ev-dash.down {{ border-top-color:var(--down); }}
+
   /* --- Grid de blocos --- */
   .grid {{ display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px; }}
   .bloco {{ background:var(--card); border:1px solid var(--line); border-radius:12px;
@@ -557,6 +615,7 @@ def gerar_html(blocos: dict[str, list[Cotacao]], analise: Analise,
 </header>
 <nav class="tabbar">
   <button class="tabbtn active" data-tab="dash" onclick="showTab('dash')">📊 Dashboard</button>
+  <button class="tabbtn" data-tab="smc" onclick="showTab('smc')">📈 SMC</button>
   <button class="tabbtn" data-tab="metodo" onclick="showTab('metodo')">📖 Metodologia</button>
 </nav>
 <section class="tab" id="tab-dash">
@@ -567,6 +626,7 @@ def gerar_html(blocos: dict[str, list[Cotacao]], analise: Analise,
 {secoes}
 </main>
 </section>
+{_smc_html(smc)}
 {_metodo_html(analise)}
 <footer>{rodape}</footer>
 <script>

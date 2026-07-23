@@ -90,6 +90,25 @@ def coletar(periodo: str = "7d") -> list[Cotacao]:
     return cotacoes
 
 
+def coletar_ohlc(ticker: str, periodo: str = "2y", intervalo: str = "1d") -> pd.DataFrame | None:
+    """Baixa OHLC (Open/High/Low/Close) de UM ticker p/ análise SMC. Devolve DataFrame
+    indexado por data ou None se não vier dado. Lida com o formato MultiIndex que o
+    yfinance às vezes usa mesmo p/ um único símbolo."""
+    df = yf.download(
+        ticker, period=periodo, interval=intervalo,
+        progress=False, auto_adjust=True, threads=False,
+    )
+    if df is None or df.empty:
+        return None
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.get_level_values(0)
+    cols = ["Open", "High", "Low", "Close"]
+    if not all(c in df.columns for c in cols):
+        return None
+    out = df[cols].dropna()
+    return out if len(out) else None
+
+
 def por_bloco(cotacoes: list[Cotacao]) -> dict[str, list[Cotacao]]:
     """Reagrupa as cotacoes na estrutura de blocos do catalogo."""
     indice = {c.ticker: c for c in cotacoes}

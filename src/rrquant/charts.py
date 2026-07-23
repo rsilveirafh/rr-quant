@@ -93,6 +93,89 @@ def hist_prob(pontos: list[tuple[str, float, bool]]) -> str:
 </svg>"""
 
 
+def _fmt_px(v: float) -> str:
+    if abs(v) >= 1000:
+        return f"{v:,.0f}".replace(",", ".")
+    if abs(v) >= 1:
+        return f"{v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return f"{v:.4f}".replace(".", ",")
+
+
+def candles(smc) -> str:
+    """Candlestick em SVG com a estrutura SMC desenhada por cima: marcadores de
+    swing (fractais) e linhas tracejadas de BOS/CHoCH no nível rompido, rotuladas
+    e coloridas por direção (herdam --up/--down, logo o modo daltônico)."""
+    df = smc.df
+    o, h = df["Open"].values, df["High"].values
+    l, c = df["Low"].values, df["Close"].values
+    n = len(df)
+    if n < 2:
+        return ""
+
+    W, H = 1520.0, 470.0
+    pl, pr, pt, pb = 10.0, 74.0, 16.0, 30.0
+    lo, hi = float(l.min()), float(h.max())
+    span = (hi - lo) or 1.0
+    lo -= span * 0.06
+    hi += span * 0.06
+
+    def X(i):
+        return pl + (W - pl - pr) * (i + 0.5) / n
+
+    def Y(p):
+        return pt + (H - pt - pb) * (1 - (p - lo) / (hi - lo))
+
+    cw = max(1.4, (W - pl - pr) / n * 0.62)
+
+    grade = ""
+    for k in range(5):
+        pv = lo + (hi - lo) * k / 4
+        y = Y(pv)
+        grade += (f'<line x1="{pl}" y1="{y:.1f}" x2="{W - pr}" y2="{y:.1f}" stroke="var(--line)" stroke-width="1"/>'
+                  f'<text x="{W - pr + 6}" y="{y + 3:.1f}" class="ax" text-anchor="start">{_fmt_px(pv)}</text>')
+
+    velas = []
+    for i in range(n):
+        x = X(i)
+        cls = "up" if c[i] >= o[i] else "down"
+        yo, yc = Y(o[i]), Y(c[i])
+        top, alt = min(yo, yc), max(1.0, abs(yc - yo))
+        velas.append(
+            f'<line x1="{x:.1f}" y1="{Y(h[i]):.1f}" x2="{x:.1f}" y2="{Y(l[i]):.1f}" class="wick {cls}"/>'
+            f'<rect x="{x - cw / 2:.1f}" y="{top:.1f}" width="{cw:.1f}" height="{alt:.1f}" class="body {cls}"/>'
+        )
+
+    sw = []
+    for s in smc.swings:
+        x = X(s.idx)
+        if s.tipo == "H":
+            sw.append(f'<circle cx="{x:.1f}" cy="{Y(s.preco) - 7:.1f}" r="2.6" class="sw-h"/>')
+        else:
+            sw.append(f'<circle cx="{x:.1f}" cy="{Y(s.preco) + 7:.1f}" r="2.6" class="sw-l"/>')
+
+    ev = []
+    for e in smc.eventos:
+        x0, x1, y = X(e.origem), X(e.idx), Y(e.nivel)
+        cls = "up" if e.direcao == "alta" else "down"
+        ev.append(
+            f'<line x1="{x0:.1f}" y1="{y:.1f}" x2="{x1:.1f}" y2="{y:.1f}" class="ev {cls}" stroke-dasharray="4,3"/>'
+            f'<text x="{x1 + 3:.1f}" y="{y - 4:.1f}" class="ev-lbl {cls}">{e.tipo}</text>'
+        )
+
+    d0 = df.index[0].strftime("%d/%m")
+    d1 = df.index[-1].strftime("%d/%m")
+    eixo = (f'<text x="{pl}" y="{H - 8:.0f}" class="ax" text-anchor="start">{d0}</text>'
+            f'<text x="{W - pr}" y="{H - 8:.0f}" class="ax" text-anchor="end">{d1}</text>')
+
+    return f"""<svg class="candles" viewBox="0 0 {W:.0f} {H:.0f}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="candlestick com estrutura SMC">
+  {grade}
+  {''.join(velas)}
+  {''.join(sw)}
+  {''.join(ev)}
+  {eixo}
+</svg>"""
+
+
 def sparkline(vals: list[float], cor: str = "currentColor") -> str:
     """Mini-linha (últimos N pontos), normalizada, com área suave."""
     if not vals or len(vals) < 2:
