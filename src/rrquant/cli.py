@@ -46,17 +46,21 @@ def main(argv: list[str] | None = None) -> int:
     print("Analisando (regime, cadeia, commodities, probabilidades históricas)...")
     analise = analyze.analisar(cotacoes, macro=macro)
 
-    print("SMC: estrutura do Ibovespa (OHLC diário)...")
+    print("SMC: estrutura do Ibovespa (diário + semanal)...")
     ohlc_ibov = collect.coletar_ohlc("^BVSP", periodo="2y", intervalo="1d")
-    smc_ibov = smc_mod.analisar("^BVSP", "Ibovespa", ohlc_ibov,
-                                timeframe="Diário", forca=args.forca)
+    smc_ltf = smc_mod.analisar("^BVSP", "Ibovespa", ohlc_ibov,
+                               timeframe="Diário", forca=args.forca)
+    ohlc_sem = collect.resample_ohlc(ohlc_ibov, "W")
+    smc_htf = smc_mod.analisar("^BVSP", "Ibovespa", ohlc_sem,
+                               timeframe="Semanal", forca=2, n_render=60)
+    dec = smc_mod.decisao(smc_htf, smc_ltf)
 
     datas = sorted({c.data for c in cotacoes if c.data})
     data_dados = datas[-1] if datas else None
     gerado_em = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
 
-    html = report.gerar_html(blocos, analise, gerado_em=gerado_em,
-                             data_dados=data_dados, smc=smc_ibov)
+    html = report.gerar_html(blocos, analise, gerado_em=gerado_em, data_dados=data_dados,
+                             smc=smc_ltf, smc_htf=smc_htf, dec=dec)
     SAIDA.parent.mkdir(parents=True, exist_ok=True)
     SAIDA.write_text(html, encoding="utf-8")
 
@@ -69,14 +73,18 @@ def main(argv: list[str] | None = None) -> int:
     ok = sum(1 for c in cotacoes if c.ok)
     _resumo_terminal(blocos)
     print(f"\n  {ok}/{len(cotacoes)} ativos com dado. Ultimo fechamento ~ {data_dados}.")
-    if smc_ibov:
-        nb = sum(1 for e in smc_ibov.eventos if e.tipo == "BOS")
-        nc = sum(1 for e in smc_ibov.eventos if e.tipo == "CHoCH")
-        obf = sum(1 for b in smc_ibov.obs if not b.mitigado)
-        fvo = sum(1 for f in smc_ibov.fvgs if not f.mitigado)
-        print(f"  SMC Ibovespa ({smc_ibov.timeframe}): tendencia {smc_ibov.trend or 'neutra'} "
-              f"| {len(smc_ibov.swings)} swings, {nb} BOS, {nc} CHoCH, "
-              f"{obf}/{len(smc_ibov.obs)} OB frescos, {fvo}/{len(smc_ibov.fvgs)} FVG abertos.")
+    if smc_ltf:
+        nb = sum(1 for e in smc_ltf.eventos if e.tipo == "BOS")
+        nc = sum(1 for e in smc_ltf.eventos if e.tipo == "CHoCH")
+        obf = sum(1 for b in smc_ltf.obs if not b.mitigado)
+        fvo = sum(1 for f in smc_ltf.fvgs if not f.mitigado)
+        htf_t = smc_htf.trend if smc_htf else "n/d"
+        print(f"  SMC Ibovespa: semanal {htf_t or 'neutra'} / diario {smc_ltf.trend or 'neutra'} "
+              f"| {len(smc_ltf.swings)} swings, {nb} BOS, {nc} CHoCH, "
+              f"{obf}/{len(smc_ltf.obs)} OB frescos, {fvo}/{len(smc_ltf.fvgs)} FVG abertos.")
+        if dec:
+            flag = " [CONFLITO HTFxLTF]" if dec.conflito else ""
+            print(f"  Decisao: {dec.acao}{flag} — controle: {dec.controle}.")
     else:
         print("  SMC Ibovespa: sem OHLC nesta execucao.")
     print(f"  Dashboard: {SAIDA}")

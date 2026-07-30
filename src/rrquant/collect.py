@@ -109,6 +109,18 @@ def coletar_ohlc(ticker: str, periodo: str = "2y", intervalo: str = "1d") -> pd.
     return out if len(out) else None
 
 
+def resample_ohlc(df: pd.DataFrame | None, regra: str = "W") -> pd.DataFrame | None:
+    """Reamostra OHLC diário p/ um timeframe maior (semanal por padrão). Abertura = 1º
+    do período, máxima = maior, mínima = menor, fechamento = último. Permite a leitura
+    HTF (semanal) a partir do mesmo pipeline diário, sem baixar fonte nova."""
+    if df is None or df.empty:
+        return None
+    agg = df.resample(regra).agg(
+        {"Open": "first", "High": "max", "Low": "min", "Close": "last"}
+    ).dropna()
+    return agg if len(agg) else None
+
+
 def por_bloco(cotacoes: list[Cotacao]) -> dict[str, list[Cotacao]]:
     """Reagrupa as cotacoes na estrutura de blocos do catalogo."""
     indice = {c.ticker: c for c in cotacoes}

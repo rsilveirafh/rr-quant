@@ -384,26 +384,51 @@ def _leitura_html(a: Analise) -> str:
 </section>"""
 
 
-def _smc_html(smc) -> str:
+def _decisao_html(dec) -> str:
+    """Caixa 'O QUE EU FARIA AGORA' — o coração da regra do conflito HTF×LTF."""
+    if dec is None:
+        return ""
+    icon = {"COMPRAR": "🟢", "VENDER": "🔴", "ESPERAR": "🟡"}.get(dec.acao, "🟡")
+    conflito = ('<span class="conflito-flag">⚠️ conflito de timeframes</span>'
+                if dec.conflito else "")
+    motivos = "".join(f"<li>{html.escape(m)}</li>" for m in dec.motivos)
+    return f"""<div class="sub-card full decisao {dec.classe}">
+    <div class="dec-head">
+      <span class="dec-tit">O que eu faria agora</span>
+      <span class="dec-acao {dec.classe}">{icon} {html.escape(dec.acao)}</span>
+      {conflito}
+    </div>
+    <div class="dec-ctrl">Quem está no controle: <b>{html.escape(dec.controle)}</b> <span class="hint">(viés do semanal)</span></div>
+    <ul class="dec-motivos">{motivos}</ul>
+  </div>"""
+
+
+def _tf_bloco(smc, titulo_extra: str = "") -> str:
+    """Um cartão de gráfico para um timeframe (HTF ou LTF)."""
+    if smc is None:
+        return ""
+    tcls, trot = {"alta": ("up", "ALTISTA"), "baixa": ("down", "BAIXISTA")}.get(
+        smc.trend, ("flat", "NEUTRA"))
+    ob_fresh = sum(1 for b in smc.obs if not b.mitigado)
+    fvg_open = sum(1 for f in smc.fvgs if not f.mitigado)
+    return f"""<div class="tf-card">
+    <div class="smc-head">
+      <span class="tf-nome">{html.escape(smc.timeframe)}</span>
+      <span class="smc-badge {tcls}">{trot}</span>
+      <span class="hint">{ob_fresh} OB frescos · {fvg_open} FVG abertos</span>
+    </div>
+    {charts.candles(smc)}
+  </div>"""
+
+
+def _smc_html(smc, smc_htf=None, dec=None) -> str:
     if smc is None:
         return ('<section class="tab smc" id="tab-smc" hidden><div class="sub-card full">'
                 '<p class="hint">Sem dados OHLC para a análise SMC nesta execução.</p></div></section>')
-    tcls, trot = {"alta": ("up", "ALTISTA"), "baixa": ("down", "BAIXISTA")}.get(
-        smc.trend, ("flat", "NEUTRA"))
-    ult = smc.df.index[-1].strftime("%d/%m/%Y")
-    n_bos = sum(1 for e in smc.eventos if e.tipo == "BOS")
-    n_choch = sum(1 for e in smc.eventos if e.tipo == "CHoCH")
-    ob_fresh = sum(1 for b in smc.obs if not b.mitigado)
-    fvg_open = sum(1 for f in smc.fvgs if not f.mitigado)
     return f"""<section class="tab smc hide-fvg" id="tab-smc" hidden>
   <div class="sub-card full">
-    <h3>Estrutura de mercado &mdash; {html.escape(smc.nome)}
-      <span class="hint">({html.escape(smc.timeframe)} · swings + BOS/CHoCH + OB/FVG/liquidez · força {smc.forca})</span></h3>
-    <div class="smc-head">
-      <span class="smc-badge {tcls}">Tendência estrutural: {trot}</span>
-      <span class="hint">último candle {ult} &middot; {n_bos} BOS · {n_choch} CHoCH &middot;
-        {ob_fresh} OB frescos · {fvg_open} FVG abertos na janela</span>
-    </div>
+    <h3>Análise SMC &mdash; {html.escape(smc.nome)}
+      <span class="hint">(semanal = viés · diário = gatilho · swings + BOS/CHoCH + OB/FVG/liquidez · força {smc.forca})</span></h3>
     <div class="smc-toggles">
       <span class="tgl-lbl">Camadas</span>
       <label><input type="checkbox" checked onchange="tglLayer('swings',this.checked)"> swings</label>
@@ -412,7 +437,6 @@ def _smc_html(smc) -> str:
       <label><input type="checkbox" onchange="tglLayer('fvg',this.checked)"> FVG</label>
       <label><input type="checkbox" checked onchange="tglLayer('liq',this.checked)"> Liquidez</label>
     </div>
-    {charts.candles(smc)}
     <div class="smc-legend">
       <span><span class="sw-dot"></span> swing point</span>
       <span><span class="ev-dash up"></span> rompimento alta</span>
@@ -422,23 +446,30 @@ def _smc_html(smc) -> str:
       <span><span class="z-swatch" style="background:var(--smc-fvg)"></span> FVG</span>
       <span><span class="z-swatch" style="background:var(--smc-liq)"></span> liquidez (BSL/SSL)</span>
     </div>
+  </div>
+  {_decisao_html(dec)}
+  <div class="tf-grid">
+    {_tf_bloco(smc_htf)}
+    {_tf_bloco(smc)}
+  </div>
+  <div class="sub-card full">
     <div class="analise-nota">
-      <b>Como ler:</b> <b>BOS</b> = rompimento a favor da tendência (continuação); <b>CHoCH</b>
-      = primeiro rompimento contra (possível virada); gatilho por <b>fechamento</b>, não pavio.
-      <b>Order Block</b> = último candle contrário antes do deslocamento que rompeu estrutura
-      (compra/demanda em roxo, venda/oferta em marrom) — apagado = já mitigado. <b>FVG</b> =
-      desequilíbrio de 3 candles (zona azul), some quando o preço volta e preenche.
-      <b>Liquidez</b> = topos/fundos iguais (linha amarela; <b>✗</b> = já varrida). As zonas se
-      estendem até a direita porque continuam válidas até o preço as tocar. Últimos
-      <b>{smc.provisorios} candles</b> provisórios. <b>Próxima fatia:</b> timeframe maior
-      (semanal) + a regra do conflito HTF×LTF + caixa "o que eu faria agora".
+      <b>Como ler:</b> o <b>semanal</b> (HTF) dá o <b>viés</b> — quem está no controle; o
+      <b>diário</b> (LTF) dá o <b>gatilho</b> da entrada. <b>BOS</b> = rompimento a favor da
+      tendência (continuação); <b>CHoCH</b> = primeiro rompimento contra (possível virada);
+      gatilho por <b>fechamento</b>, não pavio. <b>Order Block</b> = último candle contrário
+      antes do deslocamento que rompeu estrutura (compra/demanda roxo, venda/oferta marrom;
+      apagado = mitigado). <b>FVG</b> = desequilíbrio de 3 candles (azul). <b>Liquidez</b> =
+      topos/fundos iguais (amarelo; <b>✗</b> = já varrida). Regra de ouro: nunca operar contra
+      a estrutura só porque o preço tocou um Order Block — esperar confirmação. Últimos
+      <b>{smc.provisorios} candles</b> de cada timeframe são provisórios.
     </div>
   </div>
 </section>"""
 
 
 def gerar_html(blocos: dict[str, list[Cotacao]], analise: Analise,
-               gerado_em: str, data_dados: str | None, smc=None) -> str:
+               gerado_em: str, data_dados: str | None, smc=None, smc_htf=None, dec=None) -> str:
     idx = {c.ticker: c for cs in blocos.values() for c in cs}
     secoes = "\n".join(_bloco_html(nome, cs, i) for i, (nome, cs) in enumerate(blocos.items()))
     todos = list(idx.values())
@@ -610,6 +641,22 @@ def gerar_html(blocos: dict[str, list[Cotacao]], analise: Analise,
   .smc-toggles input {{ accent-color:var(--b2); cursor:pointer; }}
   .smc.hide-swings .lyr-swings, .smc.hide-estrutura .lyr-estrutura,
   .smc.hide-ob .lyr-ob, .smc.hide-fvg .lyr-fvg, .smc.hide-liq .lyr-liq {{ display:none; }}
+  /* decisão + grid de timeframes */
+  .decisao {{ margin-bottom:14px; border-left:5px solid var(--flat); }}
+  .decisao.up {{ border-left-color:var(--up); }} .decisao.down {{ border-left-color:var(--down); }}
+  .dec-head {{ display:flex; gap:14px; align-items:center; flex-wrap:wrap; }}
+  .dec-tit {{ font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--dim); font-weight:700; }}
+  .dec-acao {{ font-size:22px; font-weight:800; letter-spacing:.5px; }}
+  .dec-acao.up {{ color:var(--up); }} .dec-acao.down {{ color:var(--down); }} .dec-acao.flat {{ color:var(--b3); }}
+  .conflito-flag {{ font-size:12px; font-weight:700; color:var(--b3); border:1px solid var(--b3);
+    padding:2px 9px; border-radius:20px; }}
+  .dec-ctrl {{ margin:8px 0 4px; font-size:14px; }}
+  .dec-motivos {{ margin:6px 0 0; padding-left:18px; font-size:13.5px; line-height:1.5; }}
+  .dec-motivos li {{ margin:4px 0; }}
+  .tf-grid {{ display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }}
+  @media (max-width:1100px) {{ .tf-grid {{ grid-template-columns:1fr; }} }}
+  .tf-card {{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; }}
+  .tf-nome {{ font-weight:700; font-size:14px; letter-spacing:.3px; }}
   .smc-head {{ display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin-bottom:6px; }}
   .smc-badge {{ font-weight:800; letter-spacing:.5px; padding:4px 12px; border-radius:8px;
     background:var(--flat); color:#fff; font-size:13px; }}
@@ -667,7 +714,7 @@ def gerar_html(blocos: dict[str, list[Cotacao]], analise: Analise,
 {secoes}
 </main>
 </section>
-{_smc_html(smc)}
+{_smc_html(smc, smc_htf, dec)}
 {_metodo_html(analise)}
 <footer>{rodape}</footer>
 <script>

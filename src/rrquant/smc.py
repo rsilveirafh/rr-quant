@@ -69,6 +69,15 @@ class Liquidez:
 
 
 @dataclass
+class Decisao:
+    acao: str                      # 'COMPRAR' | 'VENDER' | 'ESPERAR'
+    classe: str                    # 'up' | 'down' | 'flat'
+    controle: str                  # quem manda: compradores / vendedores / ninguém
+    conflito: bool                 # HTF e LTF divergem?
+    motivos: list[str] = field(default_factory=list)
+
+
+@dataclass
 class SMC:
     ticker: str
     nome: str
@@ -232,6 +241,83 @@ def detectar_liquidez(df: pd.DataFrame, sh: list[int], sl: list[int],
     bsl = _clusters([(i, float(h[i])) for i in sh], tol_rel, "BSL", h, l, datas)
     ssl = _clusters([(i, float(l[i])) for i in sl], tol_rel, "SSL", h, l, datas)
     return bsl + ssl
+
+
+_TREND_CONTROLE = {"alta": "compradores", "baixa": "vendedores"}
+
+
+def decisao(htf: SMC | None, ltf: SMC | None) -> Decisao | None:
+    """Sintetiza a regra de ouro do conflito de timeframes: o HTF (semanal) dá o VIÉS,
+    o LTF (diário) dá o GATILHO. Nunca operar contra a estrutura só porque o preço tocou
+    um Order Block. O caso-chave (o da imagem): fluxo comprador dentro de um OB de venda
+    maior → NÃO comprar no impulso nem vender no toque; ESPERAR confirmação.
+    """
+    if htf is None or ltf is None:
+        return None
+
+    preco = float(ltf.df["Close"].values[-1])
+    htf_t, ltf_t = htf.trend, ltf.trend
+    controle = _TREND_CONTROLE.get(htf_t, "ninguém (equilíbrio)")
+
+    # Em que zona do HTF o preço está agora? (supply = OB de venda; demand = OB de compra)
+    zona = None
+    for b in htf.obs:
+        if b.base <= preco <= b.topo:
+            zona = "supply" if b.tipo == "venda" else "demand"
+            break
+
+    motivos: list[str] = []
+    if zona == "supply":
+        motivos.append("Preço DENTRO de um Order Block de venda do semanal (HTF) — resistência "
+                       "institucional (zona onde vendedores podem aparecer).")
+    elif zona == "demand":
+        motivos.append("Preço DENTRO de um Order Block de compra do semanal (HTF) — suporte / "
+                       "demanda institucional.")
+
+    alinhado = htf_t is not None and htf_t == ltf_t
+
+    if alinhado and htf_t == "alta":
+        # Viés de alta: procurar COMPRAS. Só não comprar se estiver colado numa resistência.
+        if zona == "supply":
+            acao, classe, conflito = "ESPERAR", "flat", False
+            motivos.append("Viés de alta, mas o preço está numa resistência semanal — esperar "
+                           "romper (BOS de alta) e retestar, ou rejeitar antes de decidir.")
+        else:
+            acao, classe, conflito = "COMPRAR", "up", False
+            zt = ", em zona de demanda semanal" if zona == "demand" else ""
+            motivos.append(f"Semanal e diário alinhados em alta{zt} — continuação a favor do viés.")
+    elif alinhado and htf_t == "baixa":
+        # Viés de baixa: procurar VENDAS. Só não vender se estiver colado num suporte.
+        if zona == "demand":
+            acao, classe, conflito = "ESPERAR", "flat", False
+            motivos.append("Viés de baixa, mas o preço está num suporte semanal — esperar perder "
+                           "(BOS de baixa) e retestar, ou reagir antes de decidir.")
+        else:
+            acao, classe, conflito = "VENDER", "down", False
+            zt = ", em zona de oferta semanal" if zona == "supply" else ""
+            motivos.append(f"Semanal e diário alinhados em baixa{zt} — continuação a favor do viés.")
+    elif htf_t and ltf_t and htf_t != ltf_t:
+        # CONFLITO: o diário aponta contra o semanal. A regra de ouro manda ESPERAR.
+        acao, classe, conflito = "ESPERAR", "flat", True
+        motivos.append(f"CONFLITO: semanal {htf_t} vs diário {ltf_t}. O HTF manda no viés; não "
+                       "operar a favor do diário contra a estrutura semanal.")
+        if zona == "supply" and ltf_t == "alta":
+            motivos.append("Caso clássico: fluxo comprador dentro de um OB de venda maior. Gatilho "
+                           "de VENDA = rejeição + CHoCH de baixa no diário. Só virar comprador se "
+                           "romper o OB (BOS de alta) e retestar.")
+        elif zona == "demand" and ltf_t == "baixa":
+            motivos.append("Fluxo vendedor dentro de um OB de compra maior. Gatilho de COMPRA = "
+                           "CHoCH de alta no diário. Só virar vendedor se perder o OB (BOS de baixa) "
+                           "e retestar.")
+        else:
+            motivos.append("Esperar o diário voltar a favor do semanal antes de agir.")
+    else:
+        acao, classe, conflito = "ESPERAR", "flat", False
+        motivos.append("Estrutura indefinida em ao menos um timeframe — sem gatilho claro.")
+
+    motivos.append("Regra de ouro: HTF (semanal) = viés · LTF (diário) = gatilho. Nunca operar "
+                   "contra a estrutura só porque o preço chegou num Order Block.")
+    return Decisao(acao, classe, controle, conflito, motivos)
 
 
 def analisar(ticker: str, nome: str, ohlc: pd.DataFrame | None,
