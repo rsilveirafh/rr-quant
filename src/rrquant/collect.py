@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass
-import os
 from pathlib import Path
 import tempfile
 
@@ -23,14 +22,15 @@ warnings.filterwarnings("ignore")
 
 # O yfinance persiste o cache de fusos/cookies por padrão no perfil do usuário.
 # Mantê-lo no projeto torna a execução portátil (inclusive em ambientes isolados).
-# O filesystem do bundle da Vercel e somente leitura. Funcoes serverless podem
-# escrever apenas em /tmp; localmente preservamos o cache dentro do projeto.
-_CACHE_YFINANCE = (
-    Path(tempfile.gettempdir()) / "rrquant-yfinance-cache"
-    if os.getenv("VERCEL")
-    else Path(__file__).resolve().parents[2] / "data" / "yfinance-cache"
-)
-_CACHE_YFINANCE.mkdir(parents=True, exist_ok=True)
+# O filesystem de uma funcao serverless pode ser somente leitura. Em vez de
+# depender de uma variavel de ambiente da plataforma, tentamos o cache local e
+# recorremos a /tmp quando ele nao puder ser criado.
+_CACHE_YFINANCE = Path(__file__).resolve().parents[2] / "data" / "yfinance-cache"
+try:
+    _CACHE_YFINANCE.mkdir(parents=True, exist_ok=True)
+except OSError:
+    _CACHE_YFINANCE = Path(tempfile.gettempdir()) / "rrquant-yfinance-cache"
+    _CACHE_YFINANCE.mkdir(parents=True, exist_ok=True)
 yf.set_tz_cache_location(_CACHE_YFINANCE)
 
 
