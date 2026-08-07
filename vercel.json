@@ -11,6 +11,9 @@
     "api/index.py": {
       "includeFiles": "src/**",
       "excludeFiles": "{data/transcricoes/**,output/**,docs/**,.venv/**}"
+    },
+    "api/health.py": {
+      "excludeFiles": "{data/transcricoes/**,output/**,docs/**,.venv/**}"
     }
   }
 }
