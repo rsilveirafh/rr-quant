@@ -5,9 +5,11 @@
   "functions": {
     "api/refresh.py": {
       "maxDuration": 60,
+      "includeFiles": "src/**",
       "excludeFiles": "{data/transcricoes/**,output/**,docs/**,.venv/**}"
     },
     "api/index.py": {
+      "includeFiles": "src/**",
       "excludeFiles": "{data/transcricoes/**,output/**,docs/**,.venv/**}"
     }
   }
