@@ -1,11 +1,7 @@
 """Sonda minima para confirmar que o runtime Python da Vercel iniciou."""
 
-from http.server import BaseHTTPRequestHandler
 
-
-class handler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.end_headers()
-        self.wfile.write(b'{"ok":true}')
+def app(environ, start_response):
+    """Aplicacao WSGI sem dependencias nem imports do projeto."""
+    start_response("200 OK", [("Content-Type", "application/json; charset=utf-8")])
+    return [b'{"ok":true}']
