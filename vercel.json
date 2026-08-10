@@ -1,18 +1,4 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "crons": [{ "path": "/api/refresh", "schedule": "30 11 * * 1-5" }],
-  "functions": {
-    "api/refresh.py": {
-      "maxDuration": 60,
-      "includeFiles": "src/**",
-      "excludeFiles": "{data/transcricoes/**,output/**,docs/**,.venv/**}"
-    },
-    "api/index.py": {
-      "includeFiles": "src/**",
-      "excludeFiles": "{data/transcricoes/**,output/**,docs/**,.venv/**}"
-    },
-    "api/health.py": {
-      "excludeFiles": "{data/transcricoes/**,output/**,docs/**,.venv/**}"
-    }
-  }
+  "outputDirectory": "public"
 }
