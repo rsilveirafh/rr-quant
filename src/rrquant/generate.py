@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 from dataclasses import dataclass
+from zoneinfo import ZoneInfo
 
 from . import analyze, collect, macro as macro_mod, report, smc as smc_mod
 
@@ -39,7 +40,9 @@ def gerar_dashboard(periodo: str = "7d", forca: int = 4) -> DashboardGerado:
 
     datas = sorted({c.data for c in cotacoes if c.data})
     market_date = datas[-1] if datas else None
-    generated_at = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    generated_at = dt.datetime.now(ZoneInfo("America/Bahia")).strftime(
+        "%Y-%m-%d %H:%M BRT (GMT-3)"
+    )
     html = report.gerar_html(blocos, analise, gerado_em=generated_at,
                              data_dados=market_date, smc=smc_ltf,
                              smc_htf=smc_htf, smc_4h=smc_4h, smc_1h=smc_1h,

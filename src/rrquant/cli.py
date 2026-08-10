@@ -11,6 +11,7 @@ import argparse
 import datetime as dt
 import webbrowser
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from . import analyze, collect, macro as macro_mod, report, smc as smc_mod
 
@@ -66,7 +67,9 @@ def main(argv: list[str] | None = None) -> int:
 
     datas = sorted({c.data for c in cotacoes if c.data})
     data_dados = datas[-1] if datas else None
-    gerado_em = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+    gerado_em = dt.datetime.now(ZoneInfo("America/Bahia")).strftime(
+        "%Y-%m-%d %H:%M BRT (GMT-3)"
+    )
 
     html = report.gerar_html(blocos, analise, gerado_em=gerado_em, data_dados=data_dados,
                              smc=smc_ltf, smc_htf=smc_htf, smc_4h=smc_4h,
