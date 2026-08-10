@@ -384,7 +384,22 @@ def _leitura_html(a: Analise) -> str:
 </section>"""
 
 
-def _decisao_html(dec) -> str:
+def _resumo_timeframes(timeframes: tuple[tuple[str, object], ...]) -> str:
+    """Resumo compacto do viés em cada timeframe, exibido junto à decisão."""
+    rotulos = {"alta": ("up", "ALTISTA"), "baixa": ("down", "BAIXISTA")}
+    itens = []
+    for nome, smc in timeframes:
+        classe, rotulo = rotulos.get(getattr(smc, "trend", None), ("flat", "NEUTRA"))
+        if smc is None:
+            rotulo = "SEM DADOS"
+        itens.append(
+            f'<span class="tf-resumo-item"><span>{html.escape(nome)}</span>'
+            f'<b class="{classe}">{rotulo}</b></span>'
+        )
+    return f'<div class="tf-resumo" aria-label="Viés por timeframe">{"".join(itens)}</div>'
+
+
+def _decisao_html(dec, timeframes: tuple[tuple[str, object], ...] = ()) -> str:
     """Caixa 'O QUE EU FARIA AGORA' — o coração da regra do conflito HTF×LTF."""
     if dec is None:
         return ""
@@ -397,6 +412,7 @@ def _decisao_html(dec) -> str:
       <span class="dec-tit">O que eu faria agora</span>
       <span class="dec-acao {dec.classe}">{icon} {html.escape(dec.acao)}</span>
       {conflito}
+      {_resumo_timeframes(timeframes)}
     </div>
     <div class="dec-ctrl">Quem está no controle: <b>{html.escape(dec.controle)}</b> <span class="hint">(viés do semanal)</span></div>
     <ul class="dec-motivos">{motivos}</ul>
@@ -450,7 +466,7 @@ def _smc_html(smc, smc_htf=None, smc_4h=None, smc_1h=None, smc_15m=None, dec=Non
       <span><span class="z-swatch" style="background:var(--smc-liq)"></span> liquidez (BSL/SSL)</span>
     </div>
   </div>
-  {_decisao_html(dec)}
+  {_decisao_html(dec, (("Semanal", smc_htf), ("Diário", smc), ("4h", smc_4h), ("1h", smc_1h), ("15 min", smc_15m)))}
   <div class="tf-grid">
     {_tf_bloco(smc_htf, "Semanal")}
     {_tf_bloco(smc, "Diário")}
@@ -657,6 +673,12 @@ def gerar_html(blocos: dict[str, list[Cotacao]], analise: Analise,
   .dec-acao.up {{ color:var(--up); }} .dec-acao.down {{ color:var(--down); }} .dec-acao.flat {{ color:var(--b3); }}
   .conflito-flag {{ font-size:12px; font-weight:700; color:var(--b3); border:1px solid var(--b3);
     padding:2px 9px; border-radius:20px; }}
+  .tf-resumo {{ margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }}
+  .tf-resumo-item {{ display:flex; align-items:center; gap:5px; padding:4px 7px; border:1px solid var(--line);
+    border-radius:7px; font-size:11px; color:var(--dim); white-space:nowrap; }}
+  .tf-resumo-item b {{ font-size:10px; letter-spacing:.35px; }}
+  .tf-resumo-item b.up {{ color:var(--up); }} .tf-resumo-item b.down {{ color:var(--down); }}
+  .tf-resumo-item b.flat {{ color:var(--b3); }}
   .dec-ctrl {{ margin:8px 0 4px; font-size:14px; }}
   .dec-motivos {{ margin:6px 0 0; padding-left:18px; font-size:13.5px; line-height:1.5; }}
   .dec-motivos li {{ margin:4px 0; }}
