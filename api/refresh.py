@@ -10,10 +10,6 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from rrquant.generate import gerar_dashboard
-from rrquant.storage import salvar_snapshot
-
-
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         secret = os.getenv("CRON_SECRET")
@@ -22,6 +18,12 @@ class handler(BaseHTTPRequestHandler):
             self._json(401, '{"error":"unauthorized"}')
             return
         try:
+            # A Vercel agrupa as rotas Python no mesmo processo. Manter os
+            # imports de pandas/yfinance aqui evita que uma falha de coleta
+            # impeça inclusive /api/health de iniciar.
+            from rrquant.generate import gerar_dashboard
+            from rrquant.storage import salvar_snapshot
+
             dashboard = gerar_dashboard()
             salvar_snapshot(dashboard.html, dashboard.market_date)
         except Exception as exc:
