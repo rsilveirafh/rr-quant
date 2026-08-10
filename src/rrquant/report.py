@@ -215,8 +215,11 @@ def _historico_html(a: Analise) -> str:
     <h3>Histórico da probabilidade <span class="hint">(walk-forward: cada dia previsto só com o passado &middot; {total} pregões)</span></h3>
     {charts.hist_prob(a.hist_prob)}
     <div class="hist-legend">
-      <span><span class="dot up"></span> Ibovespa subiu no dia</span>
-      <span><span class="dot down"></span> Ibovespa caiu</span>
+      <span><span class="dot up"></span> acertou alta</span>
+      <span><span class="dot down"></span> acertou baixa</span>
+      <span><b class="hist-x up">×</b> errou baixa</span>
+      <span><b class="hist-x down">×</b> errou alta</span>
+      <span class="hint">Altura da linha = probabilidade estimada antes do pregão; 50% = neutro; círculo = acerto; × = erro.</span>
       <span class="hint">linha 50% = moeda ao ar &middot; acertou <b>{hits}/{total}</b> ({pct:.0f}%) — se a linha fica alta nos dias verdes e baixa nos vermelhos, há sinal</span>
     </div>
   </div>"""
@@ -631,6 +634,8 @@ def gerar_html(blocos: dict[str, list[Cotacao]], analise: Analise,
     font-size:12.5px; color:var(--dim); }}
   .dot {{ display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:4px; }}
   .dot.up {{ background:var(--up); }} .dot.down {{ background:var(--down); }}
+  .hist-x {{ display:inline-block; width:10px; margin-right:4px; font-size:15px; line-height:10px; vertical-align:-1px; }}
+  .hist-x.up {{ color:var(--up); }} .hist-x.down {{ color:var(--down); }}
 
   /* --- SMC (candlestick + estrutura) --- */
   .candles {{ width:100%; height:auto; margin:6px 0 2px; }}

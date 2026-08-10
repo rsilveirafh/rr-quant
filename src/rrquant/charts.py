@@ -76,11 +76,23 @@ def hist_prob(pontos: list[tuple[str, float, bool]]) -> str:
                  f'stroke="var(--line)" stroke-width="1"{dash}/>'
                  f'<text x="{pl - 6}" y="{y + 3:.1f}" text-anchor="end" class="ax">{gv}</text>')
 
-    dots = "".join(
-        f'<circle cx="{x:.1f}" cy="{yy(q):.1f}" r="3.2" '
-        f'fill="{"var(--up)" if u else "var(--down)"}"/>'
-        for x, (_d, q, u) in zip(xs, pontos)
-    )
+    marcadores = []
+    for x, (data, prob, subiu) in zip(xs, pontos):
+        y = yy(prob)
+        cor = "var(--up)" if subiu else "var(--down)"
+        acertou = (prob >= 50) == subiu
+        descricao = (f"{data}: {'acertou' if acertou else 'errou'} — "
+                     f"probabilidade {prob:.0f}%; Ibovespa {'subiu' if subiu else 'caiu'}")
+        if acertou:
+            marcadores.append(
+                f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.7" fill="{cor}"><title>{descricao}</title></circle>'
+            )
+        else:
+            marcadores.append(
+                f'<g stroke="{cor}" stroke-width="2.2" stroke-linecap="round"><title>{descricao}</title>'
+                f'<line x1="{x - 3.2:.1f}" y1="{y - 3.2:.1f}" x2="{x + 3.2:.1f}" y2="{y + 3.2:.1f}"/>'
+                f'<line x1="{x + 3.2:.1f}" y1="{y - 3.2:.1f}" x2="{x - 3.2:.1f}" y2="{y + 3.2:.1f}"/></g>'
+            )
     d0, d1 = pontos[0][0], pontos[-1][0]
     eixo_x = (f'<text x="{pl}" y="{H - 4:.0f}" text-anchor="start" class="ax">{d0}</text>'
               f'<text x="{W - pr}" y="{H - 4:.0f}" text-anchor="end" class="ax">{d1}</text>')
@@ -88,7 +100,7 @@ def hist_prob(pontos: list[tuple[str, float, bool]]) -> str:
   {grid}
   <polygon points="{area}" fill="var(--b0)" opacity="0.10"/>
   <polyline points="{linha}" fill="none" stroke="var(--b0)" stroke-width="2" stroke-linejoin="round"/>
-  {dots}
+  {''.join(marcadores)}
   {eixo_x}
 </svg>"""
 
