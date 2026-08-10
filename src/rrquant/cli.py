@@ -14,7 +14,9 @@ from pathlib import Path
 
 from . import analyze, collect, macro as macro_mod, report, smc as smc_mod
 
-RAIZ = Path(__file__).resolve().parents[2]
+# O pacote pode estar instalado fora do repositorio (como no GitHub Actions).
+# A saida pertence ao projeto de onde o comando foi executado.
+RAIZ = Path.cwd()
 SAIDA = RAIZ / "output" / "dashboard.html"
 
 
