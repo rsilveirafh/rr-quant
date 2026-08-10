@@ -406,7 +406,10 @@ def _decisao_html(dec) -> str:
 def _tf_bloco(smc, titulo_extra: str = "") -> str:
     """Um cartão de gráfico para um timeframe (HTF ou LTF)."""
     if smc is None:
-        return ""
+        return (f'<div class="tf-card"><div class="smc-head"><span class="tf-nome">'
+                f'{html.escape(titulo_extra)}</span></div>'
+                '<p class="hint">Dados intraday indisponíveis nesta atualização.</p></div>'
+                if titulo_extra else "")
     tcls, trot = {"alta": ("up", "ALTISTA"), "baixa": ("down", "BAIXISTA")}.get(
         smc.trend, ("flat", "NEUTRA"))
     ob_fresh = sum(1 for b in smc.obs if not b.mitigado)
@@ -421,7 +424,7 @@ def _tf_bloco(smc, titulo_extra: str = "") -> str:
   </div>"""
 
 
-def _smc_html(smc, smc_htf=None, dec=None) -> str:
+def _smc_html(smc, smc_htf=None, smc_4h=None, smc_1h=None, smc_15m=None, dec=None) -> str:
     if smc is None:
         return ('<section class="tab smc" id="tab-smc" hidden><div class="sub-card full">'
                 '<p class="hint">Sem dados OHLC para a análise SMC nesta execução.</p></div></section>')
@@ -449,8 +452,11 @@ def _smc_html(smc, smc_htf=None, dec=None) -> str:
   </div>
   {_decisao_html(dec)}
   <div class="tf-grid">
-    {_tf_bloco(smc_htf)}
-    {_tf_bloco(smc)}
+    {_tf_bloco(smc_htf, "Semanal")}
+    {_tf_bloco(smc, "Diário")}
+    {_tf_bloco(smc_4h, "4 horas")}
+    {_tf_bloco(smc_1h, "1 hora")}
+    {_tf_bloco(smc_15m, "15 min")}
   </div>
   <div class="sub-card full">
     <div class="analise-nota">
@@ -469,7 +475,8 @@ def _smc_html(smc, smc_htf=None, dec=None) -> str:
 
 
 def gerar_html(blocos: dict[str, list[Cotacao]], analise: Analise,
-               gerado_em: str, data_dados: str | None, smc=None, smc_htf=None, dec=None) -> str:
+               gerado_em: str, data_dados: str | None, smc=None, smc_htf=None,
+               smc_4h=None, smc_1h=None, smc_15m=None, dec=None) -> str:
     idx = {c.ticker: c for cs in blocos.values() for c in cs}
     secoes = "\n".join(_bloco_html(nome, cs, i) for i, (nome, cs) in enumerate(blocos.items()))
     todos = list(idx.values())
@@ -714,7 +721,7 @@ def gerar_html(blocos: dict[str, list[Cotacao]], analise: Analise,
 {secoes}
 </main>
 </section>
-{_smc_html(smc, smc_htf, dec)}
+{_smc_html(smc, smc_htf, smc_4h, smc_1h, smc_15m, dec)}
 {_metodo_html(analise)}
 <footer>{rodape}</footer>
 <script>

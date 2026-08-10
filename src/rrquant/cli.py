@@ -55,6 +55,13 @@ def main(argv: list[str] | None = None) -> int:
     ohlc_sem = collect.resample_ohlc(ohlc_ibov, "W")
     smc_htf = smc_mod.analisar("^BVSP", "Ibovespa", ohlc_sem,
                                timeframe="Semanal", forca=2, n_render=60)
+    ohlc_15m = collect.coletar_ohlc("^BVSP", periodo="60d", intervalo="15m")
+    smc_15m = smc_mod.analisar("^BVSP", "Ibovespa", ohlc_15m,
+                               timeframe="15 min", forca=4, n_render=160)
+    smc_1h = smc_mod.analisar("^BVSP", "Ibovespa", collect.resample_ohlc(ohlc_15m, "1h"),
+                              timeframe="1 hora", forca=3, n_render=120)
+    smc_4h = smc_mod.analisar("^BVSP", "Ibovespa", collect.resample_ohlc(ohlc_15m, "4h"),
+                              timeframe="4 horas", forca=2, n_render=80)
     dec = smc_mod.decisao(smc_htf, smc_ltf)
 
     datas = sorted({c.data for c in cotacoes if c.data})
@@ -62,7 +69,8 @@ def main(argv: list[str] | None = None) -> int:
     gerado_em = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
 
     html = report.gerar_html(blocos, analise, gerado_em=gerado_em, data_dados=data_dados,
-                             smc=smc_ltf, smc_htf=smc_htf, dec=dec)
+                             smc=smc_ltf, smc_htf=smc_htf, smc_4h=smc_4h,
+                             smc_1h=smc_1h, smc_15m=smc_15m, dec=dec)
     SAIDA.parent.mkdir(parents=True, exist_ok=True)
     SAIDA.write_text(html, encoding="utf-8")
 
