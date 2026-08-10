@@ -1,12 +1,727 @@
 <!doctype html>
-<html lang="pt-BR">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>RR Quant</title>
-  </head>
-  <body>
-    <h1>RR Quant</h1>
-    <p>O primeiro dashboard esta sendo gerado. Atualize esta pagina em alguns minutos.</p>
-  </body>
+<html lang="pt-BR" data-cb="0">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rr-quant &middot; varredura do dia</title>
+<style>
+  :root {
+    --bg:#0d1017; --card:#161b24; --ink:#eef1f6; --dim:#8b94a3; --line:#252c37;
+    --up:#1ed760; --down:#ff4b5c; --flat:#8b94a3;
+    --b0:#ff5d8f; --b1:#9b5cff; --b2:#00c2d8; --b3:#ffb020;
+    --b4:#ff7a2f; --b5:#12d19e; --b6:#ff4d6d; --b7:#4d7dff;
+    --smc-supply:#b06a2c; --smc-demand:#9b5cff; --smc-fvg:#4d7dff; --smc-liq:#ffb020;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg:#f4f6fa; --card:#fff; --ink:#161a21; --dim:#5d6b7d; --line:#e3e7ee;
+      --up:#0f9d58; --down:#e02f44; }
+  }
+  html[data-cb="1"] {
+    --up:#0072B2; --down:#E69F00;
+    --b0:#E69F00; --b1:#56B4E9; --b2:#009E73; --b3:#F0E442;
+    --b4:#D55E00; --b5:#0072B2; --b6:#CC79A7; --b7:#999999;
+    --smc-supply:#D55E00; --smc-demand:#CC79A7; --smc-fvg:#56B4E9; --smc-liq:#F0E442;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+    font:15px/1.45 -apple-system,Segoe UI,Roboto,sans-serif; padding:22px 28px; }
+  header, .tabbar, .kpis, .analise, .leitura, .grid, .metodo, .smc, footer { max-width:min(1600px, 96vw); margin-left:auto; margin-right:auto; }
+  header { margin-bottom:18px; display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; }
+  h1 { font-size:22px; margin:0 0 4px; letter-spacing:.3px;
+    background:linear-gradient(90deg,var(--b0),var(--b2),var(--b5));
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  .sub { color:var(--dim); font-size:13px; max-width:820px; }
+  #cbtoggle { cursor:pointer; border:1px solid var(--line); background:var(--card);
+    color:var(--ink); font-size:13px; font-weight:600; padding:8px 14px; border-radius:8px; white-space:nowrap; }
+  #cbtoggle:hover { border-color:var(--up); }
+
+  /* --- KPIs (topo) --- */
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+    gap:14px; margin-bottom:20px; align-items:stretch; }
+  .kpi { background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:14px 16px; border-top:4px solid var(--tc,var(--flat)); display:flex;
+    flex-direction:column; }
+  .kpi.wide { grid-column:span 2; }
+  .kpi.t0 { --tc:var(--b0); } .kpi.t1 { --tc:var(--b1); } .kpi.t2 { --tc:var(--b2); }
+  .kpi.t3 { --tc:var(--b3); } .kpi.t4 { --tc:var(--b4); } .kpi.t5 { --tc:var(--b5); }
+  .kpi-tit { font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--dim);
+    font-weight:600; margin-bottom:6px; }
+  .kpi-big { font-size:32px; font-weight:800; line-height:1; font-variant-numeric:tabular-nums; }
+  .kpi-var { font-size:13px; font-weight:700; margin-top:4px; }
+  .kpi-var.up { color:var(--up); } .kpi-var.down { color:var(--down); }
+  .kpi-var.flat, .kpi-var.na { color:var(--flat); }
+  .kpi-sub { font-size:12.5px; color:var(--dim); margin-top:6px; }
+  .kpi-badge { display:inline-block; font-size:20px; font-weight:800; letter-spacing:1px;
+    padding:4px 14px; border-radius:8px; background:var(--flat); color:#fff; align-self:flex-start; }
+  .kpi-badge.up { background:var(--up); } .kpi-badge.down { background:var(--down); }
+  .gauge { width:100%; max-width:220px; height:auto; align-self:center; }
+  .gauge-val { fill:var(--ink); font-weight:800; font-size:40px; }
+  .spark { width:100%; height:34px; margin-top:8px; color:var(--tc); }
+  .g-lbl { fill:var(--dim); font-size:11px; font-weight:600; }
+
+  /* --- Abas + análise + metodologia --- */
+  .tabbar { display:flex; gap:8px; margin-bottom:16px; }
+  .tabbtn { cursor:pointer; border:1px solid var(--line); background:var(--card); color:var(--dim);
+    font-weight:600; padding:8px 16px; border-radius:9px; font-size:14px; }
+  .tabbtn.active { color:var(--ink); border-color:var(--b2); box-shadow:inset 0 -3px 0 var(--b2); }
+  .tab[hidden] { display:none; }
+  .analise { margin-bottom:20px; }
+  .analise-nota { font-size:12.5px; color:var(--dim); margin-top:10px; }
+  .metodo p { font-size:14px; line-height:1.55; opacity:.95; }
+  .metodo h4 { margin:18px 0 6px; font-size:15px; }
+  .metodo-vars { font-size:14px; line-height:1.5; margin:6px 0; }
+  .metodo-vars li { margin:5px 0; }
+  .z-up { color:var(--up); font-weight:700; }
+  .z-down { color:var(--down); font-weight:700; }
+  .z-flat { color:var(--flat); font-weight:700; }
+
+  /* --- Leitura --- */
+  .leitura { display:grid; grid-template-columns:repeat(2, minmax(0,1fr));
+    gap:14px; margin-bottom:22px; align-items:start; }
+  @media (max-width:900px) { .leitura { grid-template-columns:1fr; } }
+  .sub-card.full { grid-column:1/-1; }
+  .sub-card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+  .sub-card h3 { font-size:13px; margin:0 0 10px; text-transform:uppercase; letter-spacing:.6px; color:var(--dim); }
+  .hint { text-transform:none; letter-spacing:0; font-weight:400; opacity:.8; }
+  .cadeia, .macro { grid-column:span 1; }
+  .passo { padding:9px 0; border-bottom:1px solid var(--line); }
+  .passo:last-child { border-bottom:0; }
+  .passo-top { display:flex; justify-content:space-between; gap:10px; }
+  .passo-tit { font-weight:700; }
+  .passo-num { font-variant-numeric:tabular-nums; color:var(--dim); }
+  .passo-txt { opacity:.95; font-size:14px; margin-top:2px; }
+  .passo-why { color:var(--dim); font-size:12.5px; margin-top:3px; font-style:italic; }
+  .macro { grid-column:1/-1; }
+  .macro-cols { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:22px; }
+  .macro-col h4 { font-size:12px; margin:0 0 6px; color:var(--dim); text-transform:uppercase; letter-spacing:.5px; }
+  .ind { padding:8px 0; border-bottom:1px solid var(--line); }
+  .ind:last-child { border-bottom:0; }
+  .ind-top { display:flex; justify-content:space-between; gap:10px; align-items:baseline; }
+  .ind-nome { font-weight:600; }
+  .ind-val { font-variant-numeric:tabular-nums; font-weight:700; }
+  .ind-why { color:var(--dim); font-size:12.5px; margin-top:2px; }
+  .jr { float:right; text-transform:none; letter-spacing:0; font-weight:700;
+    background:var(--line); padding:2px 10px; border-radius:6px; font-size:12px; }
+  .notas { margin:0; padding-left:18px; opacity:.95; font-size:14px; }
+  .notas li { margin:3px 0; }
+
+  /* --- Gráficos de barra --- */
+  .barchart { display:flex; flex-direction:column; gap:11px; }
+  .bar-row { display:grid; grid-template-columns:minmax(150px,46%) 1fr auto; gap:12px; align-items:center; }
+  .bar-lbl { font-size:13px; }
+  .bar-track { position:relative; height:16px; background:var(--line); border-radius:8px; overflow:hidden; }
+  .bar-fill { position:absolute; top:0; height:100%; border-radius:8px; }
+  .bar-fill.positivo { background:var(--up); }
+  .bar-fill.negativo { background:var(--down); }
+  .bar-fill.neutro { background:var(--flat); }
+  .bar-fill.pos { background:var(--up); }
+  .bar-fill.neg { background:var(--down); }
+  .bar-base { position:absolute; top:-2px; width:2px; height:20px; background:var(--ink); opacity:.65; }
+  .bar-track.diverg { overflow:visible; }
+  .bar-zero { position:absolute; left:50%; top:-2px; width:1px; height:20px; background:var(--dim); }
+  .bar-val { font-variant-numeric:tabular-nums; font-weight:700; min-width:44px; text-align:right; }
+  .histchart { width:100%; height:auto; margin-top:4px; }
+  .ax { fill:var(--dim); font-size:10px; }
+  .hist-legend { display:flex; gap:16px; flex-wrap:wrap; align-items:center; margin-top:8px;
+    font-size:12.5px; color:var(--dim); }
+  .dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:4px; }
+  .dot.up { background:var(--up); } .dot.down { background:var(--down); }
+
+  /* --- SMC (candlestick + estrutura) --- */
+  .candles { width:100%; height:auto; margin:6px 0 2px; }
+  .candles .wick { stroke-width:1; }
+  .candles .wick.up { stroke:var(--up); } .candles .wick.down { stroke:var(--down); }
+  .candles .body.up { fill:var(--up); stroke:var(--up); }
+  .candles .body.down { fill:var(--down); stroke:var(--down); }
+  .candles .sw-h, .candles .sw-l { fill:var(--dim); }
+  .candles .ev { stroke-width:1.5; }
+  .candles .ev.up { stroke:var(--up); } .candles .ev.down { stroke:var(--down); }
+  .candles .ev-lbl { font-size:11px; font-weight:700; }
+  .candles .ev-lbl.up { fill:var(--up); } .candles .ev-lbl.down { fill:var(--down); }
+  .candles .ob.demand { fill:var(--smc-demand); }
+  .candles .ob.supply { fill:var(--smc-supply); }
+  .candles .ob.ativo { stroke-width:1.4; }
+  .candles .ob.demand.ativo { stroke:var(--smc-demand); }
+  .candles .ob.supply.ativo { stroke:var(--smc-supply); }
+  .candles .fvg { fill:var(--smc-fvg); }
+  .candles .liq { stroke:var(--smc-liq); stroke-width:1.4; }
+  .candles .liq-lbl { fill:var(--smc-liq); font-size:10.5px; font-weight:700; }
+  .candles .zlbl { font-size:10px; font-weight:700; }
+  .candles .zlbl.demand { fill:var(--smc-demand); }
+  .candles .zlbl.supply { fill:var(--smc-supply); }
+  .z-swatch { display:inline-block; width:11px; height:11px; border-radius:3px;
+    margin-right:4px; vertical-align:middle; opacity:.85; }
+  .smc-toggles { display:flex; gap:14px; flex-wrap:wrap; align-items:center; margin:4px 0 6px;
+    font-size:13px; padding:8px 12px; background:var(--card); border:1px solid var(--line); border-radius:10px; }
+  .smc-toggles .tgl-lbl { color:var(--dim); font-weight:600; text-transform:uppercase;
+    font-size:11px; letter-spacing:.5px; }
+  .smc-toggles label { display:inline-flex; align-items:center; gap:5px; cursor:pointer; user-select:none; }
+  .smc-toggles input { accent-color:var(--b2); cursor:pointer; }
+  .smc.hide-swings .lyr-swings, .smc.hide-estrutura .lyr-estrutura,
+  .smc.hide-ob .lyr-ob, .smc.hide-fvg .lyr-fvg, .smc.hide-liq .lyr-liq { display:none; }
+  /* decisão + grid de timeframes */
+  .decisao { margin-bottom:14px; border-left:5px solid var(--flat); }
+  .decisao.up { border-left-color:var(--up); } .decisao.down { border-left-color:var(--down); }
+  .dec-head { display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+  .dec-tit { font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--dim); font-weight:700; }
+  .dec-acao { font-size:22px; font-weight:800; letter-spacing:.5px; }
+  .dec-acao.up { color:var(--up); } .dec-acao.down { color:var(--down); } .dec-acao.flat { color:var(--b3); }
+  .conflito-flag { font-size:12px; font-weight:700; color:var(--b3); border:1px solid var(--b3);
+    padding:2px 9px; border-radius:20px; }
+  .dec-ctrl { margin:8px 0 4px; font-size:14px; }
+  .dec-motivos { margin:6px 0 0; padding-left:18px; font-size:13.5px; line-height:1.5; }
+  .dec-motivos li { margin:4px 0; }
+  .tf-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }
+  @media (max-width:1100px) { .tf-grid { grid-template-columns:1fr; } }
+  .tf-card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; }
+  .tf-nome { font-weight:700; font-size:14px; letter-spacing:.3px; }
+  .smc-head { display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin-bottom:6px; }
+  .smc-badge { font-weight:800; letter-spacing:.5px; padding:4px 12px; border-radius:8px;
+    background:var(--flat); color:#fff; font-size:13px; }
+  .smc-badge.up { background:var(--up); } .smc-badge.down { background:var(--down); }
+  .smc-legend { display:flex; gap:16px; flex-wrap:wrap; align-items:center; margin-top:8px;
+    font-size:12.5px; color:var(--dim); }
+  .sw-dot { display:inline-block; width:8px; height:8px; border-radius:50%;
+    background:var(--dim); margin-right:4px; vertical-align:middle; }
+  .ev-dash { display:inline-block; width:16px; border-top:2px dashed var(--flat);
+    margin-right:4px; vertical-align:middle; }
+  .ev-dash.up { border-top-color:var(--up); } .ev-dash.down { border-top-color:var(--down); }
+
+  /* --- Grid de blocos --- */
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px; }
+  .bloco { background:var(--card); border:1px solid var(--line); border-radius:12px;
+    padding:14px 16px; border-top:4px solid var(--accent, var(--flat)); }
+  .b0 { --accent:var(--b0); } .b1 { --accent:var(--b1); } .b2 { --accent:var(--b2); }
+  .b3 { --accent:var(--b3); } .b4 { --accent:var(--b4); } .b5 { --accent:var(--b5); }
+  .b6 { --accent:var(--b6); } .b7 { --accent:var(--b7); }
+  .bloco h2 { font-size:14px; letter-spacing:.4px; margin:0 0 4px; color:var(--accent); font-weight:700; }
+  .bloco-sub { color:var(--dim); font-size:11.5px; margin:0 0 10px; line-height:1.35; }
+  .bloco table { width:100%; border-collapse:collapse; }
+  .bloco th { text-align:left; font-size:11px; color:var(--dim); font-weight:600; padding:0 0 6px; border-bottom:1px solid var(--line); }
+  .bloco th:nth-child(3), .bloco th:nth-child(4), td.px, td.var { text-align:right; }
+  .bloco td { padding:6px 0; border-bottom:1px solid var(--line); font-variant-numeric:tabular-nums; }
+  .bloco tr:last-child td { border-bottom:0; }
+  .nome { font-weight:500; }
+  .tk { color:var(--dim); font-size:12px; }
+  .var { font-weight:700; white-space:nowrap; }
+  tr.up .var { color:var(--up); } tr.down .var { color:var(--down); }
+  tr.flat .var, tr.na .var { color:var(--flat); }
+  tr.na td { opacity:.5; }
+  .inv { color:var(--dim); cursor:help; }
+  footer { margin-top:22px; color:var(--dim); font-size:12px; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>rr-quant &middot; varredura do dia</h1>
+    <div class="sub">Snapshot macro de mercados &mdash; variação do último fechamento vs. o anterior. Toda variação traz seta (▲▼) e sinal (+/−) além da cor. <span class="inv">*</span> = alta costuma indicar aversão a risco.</div>
+  </div>
+  <button id="cbtoggle" onclick="toggleCB()" aria-pressed="false">♿ Modo daltônico</button>
+</header>
+<nav class="tabbar">
+  <button class="tabbtn active" data-tab="dash" onclick="showTab('dash')">📊 Dashboard</button>
+  <button class="tabbtn" data-tab="smc" onclick="showTab('smc')">📈 SMC</button>
+  <button class="tabbtn" data-tab="metodo" onclick="showTab('metodo')">📖 Metodologia</button>
+</nav>
+<section class="tab" id="tab-dash">
+<section class="kpis"><div class="kpi t0 wide">
+    <div class="kpi-tit">Ibovespa &middot; próximo pregão</div>
+    <svg class="gauge" viewBox="0 0 200 120" role="img" aria-label="probabilidade 52%">
+  <path d="M10.0,100.0 A90,90 0 0 1 91.5,10.4" fill="none" stroke="var(--down)" stroke-width="14" opacity="1.0"/><path d="M91.5,10.4 A90,90 0 0 1 108.5,10.4" fill="none" stroke="var(--flat)" stroke-width="14" opacity="1.0"/><path d="M108.5,10.4 A90,90 0 0 1 190.0,100.0" fill="none" stroke="var(--up)" stroke-width="14" opacity="1.0"/><circle cx="104.7" cy="10.1" r="8" fill="var(--ink)" stroke="var(--card)" stroke-width="3"/>
+  <text x="100" y="84" text-anchor="middle" class="gauge-val" fill="var(--flat)">52%</text>
+  <text x="4" y="114" class="g-lbl" text-anchor="start">baixa</text><text x="100" y="12" class="g-lbl" text-anchor="middle">estável</text><text x="196" y="114" class="g-lbl" text-anchor="end">alta</text>
+</svg>
+    <div class="kpi-sub">chance de fechar em alta &middot; sem viés claro<br>
+      <span class="hint">base 53% · acerto fora da amostra ~58%</span></div>
+  </div><div class="kpi t1">
+    <div class="kpi-tit">Regime do dia</div>
+    <div class="kpi-badge flat">MISTO</div>
+    <div class="kpi-sub">16/19 bolsas em alta</div>
+  </div><div class="kpi t2">
+    <div class="kpi-tit">VIX · volatilidade</div>
+    <div class="kpi-big">15,42</div>
+    <div class="kpi-var up">▲ +3,49% <span class="hint">medo do mercado</span></div>
+    <svg class="spark" viewBox="0 0 120 30" preserveAspectRatio="none" aria-hidden="true">
+  <polygon points="3.0,30.0 3.0,15.1 6.9,18.2 10.9,23.0 14.8,22.4 18.7,24.2 22.7,21.9 26.6,18.7 30.5,23.1 34.4,26.5 38.4,17.6 42.3,20.3 46.2,23.8 50.2,19.4 54.1,10.9 58.0,11.4 62.0,18.0 65.9,19.8 69.8,11.2 73.8,11.7 77.7,11.3 81.6,13.2 85.6,3.0 89.5,17.9 93.4,22.5 97.3,23.0 101.3,20.3 105.2,23.2 109.1,26.0 113.1,27.0 117.0,24.8 117.0,30.0" fill="var(--b2)" opacity="0.12"/>
+  <polyline points="3.0,15.1 6.9,18.2 10.9,23.0 14.8,22.4 18.7,24.2 22.7,21.9 26.6,18.7 30.5,23.1 34.4,26.5 38.4,17.6 42.3,20.3 46.2,23.8 50.2,19.4 54.1,10.9 58.0,11.4 62.0,18.0 65.9,19.8 69.8,11.2 73.8,11.7 77.7,11.3 81.6,13.2 85.6,3.0 89.5,17.9 93.4,22.5 97.3,23.0 101.3,20.3 105.2,23.2 109.1,26.0 113.1,27.0 117.0,24.8" fill="none" stroke="var(--b2)" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
+</svg>
+  </div><div class="kpi t3">
+    <div class="kpi-tit">USD/BRL · dólar</div>
+    <div class="kpi-big">5,09</div>
+    <div class="kpi-var down">▼ -0,60%</div>
+    <svg class="spark" viewBox="0 0 120 30" preserveAspectRatio="none" aria-hidden="true">
+  <polygon points="3.0,30.0 3.0,9.1 6.9,10.1 10.9,3.2 14.8,3.0 18.7,8.7 22.7,14.8 26.6,10.7 30.5,11.8 34.4,16.3 38.4,20.2 42.3,14.2 46.2,23.2 50.2,22.7 54.1,19.3 58.0,17.3 62.0,20.7 65.9,23.2 69.8,27.0 73.8,21.8 77.7,24.0 81.6,17.9 85.6,15.8 89.5,17.3 93.4,24.7 97.3,25.5 101.3,20.9 105.2,14.8 109.1,15.6 113.1,18.1 117.0,22.7 117.0,30.0" fill="var(--b3)" opacity="0.12"/>
+  <polyline points="3.0,9.1 6.9,10.1 10.9,3.2 14.8,3.0 18.7,8.7 22.7,14.8 26.6,10.7 30.5,11.8 34.4,16.3 38.4,20.2 42.3,14.2 46.2,23.2 50.2,22.7 54.1,19.3 58.0,17.3 62.0,20.7 65.9,23.2 69.8,27.0 73.8,21.8 77.7,24.0 81.6,17.9 85.6,15.8 89.5,17.3 93.4,24.7 97.3,25.5 101.3,20.9 105.2,14.8 109.1,15.6 113.1,18.1 117.0,22.7" fill="none" stroke="var(--b3)" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
+</svg>
+  </div><div class="kpi t4">
+    <div class="kpi-tit">Petróleo Brent</div>
+    <div class="kpi-big">84,85</div>
+    <div class="kpi-var up">▲ +1,56%</div>
+    <svg class="spark" viewBox="0 0 120 30" preserveAspectRatio="none" aria-hidden="true">
+  <polygon points="3.0,30.0 3.0,26.7 6.9,25.7 10.9,25.9 14.8,27.0 18.7,26.8 22.7,25.0 26.6,21.8 30.5,23.2 34.4,23.5 38.4,17.4 42.3,16.2 46.2,16.1 50.2,16.7 54.1,13.4 58.0,12.5 62.0,11.0 65.9,8.5 69.8,3.0 73.8,6.2 77.7,13.2 81.6,16.8 85.6,11.3 89.5,12.7 93.4,11.8 97.3,17.0 101.3,20.7 105.2,20.6 109.1,18.1 113.1,17.2 117.0,16.1 117.0,30.0" fill="var(--b4)" opacity="0.12"/>
+  <polyline points="3.0,26.7 6.9,25.7 10.9,25.9 14.8,27.0 18.7,26.8 22.7,25.0 26.6,21.8 30.5,23.2 34.4,23.5 38.4,17.4 42.3,16.2 46.2,16.1 50.2,16.7 54.1,13.4 58.0,12.5 62.0,11.0 65.9,8.5 69.8,3.0 73.8,6.2 77.7,13.2 81.6,16.8 85.6,11.3 89.5,12.7 93.4,11.8 97.3,17.0 101.3,20.7 105.2,20.6 109.1,18.1 113.1,17.2 117.0,16.1" fill="none" stroke="var(--b4)" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
+</svg>
+  </div><div class="kpi t5">
+    <div class="kpi-tit">Juro real · Brasil</div>
+    <div class="kpi-big">8,9%</div>
+    <div class="kpi-sub">Selic &minus; IPCA 12m &middot; atrai renda fixa</div>
+  </div></section>
+<section class="analise">
+  <div class="sub-card full">
+    <h3>Como o placar chegou nos 52% <span class="hint">(contribuição de cada variável hoje, em log-odds)</span></h3>
+    <div class="barchart"><div class="bar-row">
+      <div class="bar-lbl">DXY</div>
+      <div class="bar-track diverg">
+        <div class="bar-zero"></div>
+        <div class="bar-fill neg" style="left:0.0%;width:50.0%"></div>
+      </div>
+      <div class="bar-val neg">↓ baixa</div>
+    </div><div class="bar-row">
+      <div class="bar-lbl">S&amp;P 500 (ont.)</div>
+      <div class="bar-track diverg">
+        <div class="bar-zero"></div>
+        <div class="bar-fill neg" style="left:15.4%;width:34.6%"></div>
+      </div>
+      <div class="bar-val neg">↓ baixa</div>
+    </div><div class="bar-row">
+      <div class="bar-lbl">Europa</div>
+      <div class="bar-track diverg">
+        <div class="bar-zero"></div>
+        <div class="bar-fill pos" style="left:50.0%;width:31.4%"></div>
+      </div>
+      <div class="bar-val pos">↑ alta</div>
+    </div><div class="bar-row">
+      <div class="bar-lbl">EWZ (ont.)</div>
+      <div class="bar-track diverg">
+        <div class="bar-zero"></div>
+        <div class="bar-fill pos" style="left:50.0%;width:28.5%"></div>
+      </div>
+      <div class="bar-val pos">↑ alta</div>
+    </div><div class="bar-row">
+      <div class="bar-lbl">Ásia</div>
+      <div class="bar-track diverg">
+        <div class="bar-zero"></div>
+        <div class="bar-fill neg" style="left:48.0%;width:2.0%"></div>
+      </div>
+      <div class="bar-val neg">↓ baixa</div>
+    </div></div>
+    <div class="analise-nota">À direita, a variável empurra a probabilidade para <b>alta</b>; à esquerda, para <b>baixa</b>. Os sinais saem do modelo conjunto (regressão logística), então podem diferir da leitura isolada de cada fator. Veja a aba <b>Metodologia</b> para como tudo é construído.</div>
+  </div>
+  <div class="sub-card full">
+    <h3>Histórico da probabilidade <span class="hint">(walk-forward: cada dia previsto só com o passado &middot; 60 pregões)</span></h3>
+    <svg class="histchart" viewBox="0 0 840 220" preserveAspectRatio="xMidYMid meet" role="img" aria-label="histórico da probabilidade">
+  <line x1="34.0" y1="196.0" x2="828.0" y2="196.0" stroke="var(--line)" stroke-width="1"/><text x="28.0" y="199.0" text-anchor="end" class="ax">0</text><line x1="34.0" y1="105.0" x2="828.0" y2="105.0" stroke="var(--line)" stroke-width="1" stroke-dasharray="5,4"/><text x="28.0" y="108.0" text-anchor="end" class="ax">50</text><line x1="34.0" y1="14.0" x2="828.0" y2="14.0" stroke="var(--line)" stroke-width="1"/><text x="28.0" y="17.0" text-anchor="end" class="ax">100</text>
+  <polygon points="34.0,44.0 34.0,44.0 47.5,53.8 60.9,45.3 74.4,139.4 87.8,102.3 101.3,112.0 114.7,140.7 128.2,81.8 141.7,77.7 155.1,152.6 168.6,53.0 182.0,101.1 195.5,46.9 208.9,128.4 222.4,80.1 235.9,93.5 249.3,100.6 262.8,118.7 276.2,80.6 289.7,135.2 303.2,71.6 316.6,109.2 330.1,115.6 343.5,74.0 357.0,68.8 370.4,81.5 383.9,99.6 397.4,102.9 410.8,106.7 424.3,106.3 437.7,74.7 451.2,115.5 464.6,93.0 478.1,74.5 491.6,115.4 505.0,42.1 518.5,133.3 531.9,69.6 545.4,116.8 558.8,107.7 572.3,76.4 585.8,102.1 599.2,105.3 612.7,103.0 626.1,101.9 639.6,90.7 653.1,92.7 666.5,152.3 680.0,59.9 693.4,88.2 706.9,86.0 720.3,85.5 733.8,45.3 747.3,115.9 760.7,82.6 774.2,85.4 787.6,108.7 801.1,102.9 814.5,73.3 828.0,102.8 828.0,196.0 34.0,196.0" fill="var(--b0)" opacity="0.10"/>
+  <polyline points="34.0,44.0 47.5,53.8 60.9,45.3 74.4,139.4 87.8,102.3 101.3,112.0 114.7,140.7 128.2,81.8 141.7,77.7 155.1,152.6 168.6,53.0 182.0,101.1 195.5,46.9 208.9,128.4 222.4,80.1 235.9,93.5 249.3,100.6 262.8,118.7 276.2,80.6 289.7,135.2 303.2,71.6 316.6,109.2 330.1,115.6 343.5,74.0 357.0,68.8 370.4,81.5 383.9,99.6 397.4,102.9 410.8,106.7 424.3,106.3 437.7,74.7 451.2,115.5 464.6,93.0 478.1,74.5 491.6,115.4 505.0,42.1 518.5,133.3 531.9,69.6 545.4,116.8 558.8,107.7 572.3,76.4 585.8,102.1 599.2,105.3 612.7,103.0 626.1,101.9 639.6,90.7 653.1,92.7 666.5,152.3 680.0,59.9 693.4,88.2 706.9,86.0 720.3,85.5 733.8,45.3 747.3,115.9 760.7,82.6 774.2,85.4 787.6,108.7 801.1,102.9 814.5,73.3 828.0,102.8" fill="none" stroke="var(--b0)" stroke-width="2" stroke-linejoin="round"/>
+  <circle cx="34.0" cy="44.0" r="3.2" fill="var(--up)"/><circle cx="47.5" cy="53.8" r="3.2" fill="var(--up)"/><circle cx="60.9" cy="45.3" r="3.2" fill="var(--up)"/><circle cx="74.4" cy="139.4" r="3.2" fill="var(--down)"/><circle cx="87.8" cy="102.3" r="3.2" fill="var(--up)"/><circle cx="101.3" cy="112.0" r="3.2" fill="var(--down)"/><circle cx="114.7" cy="140.7" r="3.2" fill="var(--down)"/><circle cx="128.2" cy="81.8" r="3.2" fill="var(--down)"/><circle cx="141.7" cy="77.7" r="3.2" fill="var(--up)"/><circle cx="155.1" cy="152.6" r="3.2" fill="var(--down)"/><circle cx="168.6" cy="53.0" r="3.2" fill="var(--down)"/><circle cx="182.0" cy="101.1" r="3.2" fill="var(--down)"/><circle cx="195.5" cy="46.9" r="3.2" fill="var(--up)"/><circle cx="208.9" cy="128.4" r="3.2" fill="var(--up)"/><circle cx="222.4" cy="80.1" r="3.2" fill="var(--down)"/><circle cx="235.9" cy="93.5" r="3.2" fill="var(--down)"/><circle cx="249.3" cy="100.6" r="3.2" fill="var(--down)"/><circle cx="262.8" cy="118.7" r="3.2" fill="var(--down)"/><circle cx="276.2" cy="80.6" r="3.2" fill="var(--up)"/><circle cx="289.7" cy="135.2" r="3.2" fill="var(--down)"/><circle cx="303.2" cy="71.6" r="3.2" fill="var(--down)"/><circle cx="316.6" cy="109.2" r="3.2" fill="var(--up)"/><circle cx="330.1" cy="115.6" r="3.2" fill="var(--down)"/><circle cx="343.5" cy="74.0" r="3.2" fill="var(--up)"/><circle cx="357.0" cy="68.8" r="3.2" fill="var(--down)"/><circle cx="370.4" cy="81.5" r="3.2" fill="var(--down)"/><circle cx="383.9" cy="99.6" r="3.2" fill="var(--down)"/><circle cx="397.4" cy="102.9" r="3.2" fill="var(--down)"/><circle cx="410.8" cy="106.7" r="3.2" fill="var(--down)"/><circle cx="424.3" cy="106.3" r="3.2" fill="var(--down)"/><circle cx="437.7" cy="74.7" r="3.2" fill="var(--up)"/><circle cx="451.2" cy="115.5" r="3.2" fill="var(--up)"/><circle cx="464.6" cy="93.0" r="3.2" fill="var(--down)"/><circle cx="478.1" cy="74.5" r="3.2" fill="var(--down)"/><circle cx="491.6" cy="115.4" r="3.2" fill="var(--down)"/><circle cx="505.0" cy="42.1" r="3.2" fill="var(--up)"/><circle cx="518.5" cy="133.3" r="3.2" fill="var(--down)"/><circle cx="531.9" cy="69.6" r="3.2" fill="var(--up)"/><circle cx="545.4" cy="116.8" r="3.2" fill="var(--up)"/><circle cx="558.8" cy="107.7" r="3.2" fill="var(--down)"/><circle cx="572.3" cy="76.4" r="3.2" fill="var(--up)"/><circle cx="585.8" cy="102.1" r="3.2" fill="var(--down)"/><circle cx="599.2" cy="105.3" r="3.2" fill="var(--down)"/><circle cx="612.7" cy="103.0" r="3.2" fill="var(--down)"/><circle cx="626.1" cy="101.9" r="3.2" fill="var(--down)"/><circle cx="639.6" cy="90.7" r="3.2" fill="var(--down)"/><circle cx="653.1" cy="92.7" r="3.2" fill="var(--up)"/><circle cx="666.5" cy="152.3" r="3.2" fill="var(--down)"/><circle cx="680.0" cy="59.9" r="3.2" fill="var(--down)"/><circle cx="693.4" cy="88.2" r="3.2" fill="var(--up)"/><circle cx="706.9" cy="86.0" r="3.2" fill="var(--up)"/><circle cx="720.3" cy="85.5" r="3.2" fill="var(--down)"/><circle cx="733.8" cy="45.3" r="3.2" fill="var(--up)"/><circle cx="747.3" cy="115.9" r="3.2" fill="var(--up)"/><circle cx="760.7" cy="82.6" r="3.2" fill="var(--up)"/><circle cx="774.2" cy="85.4" r="3.2" fill="var(--down)"/><circle cx="787.6" cy="108.7" r="3.2" fill="var(--down)"/><circle cx="801.1" cy="102.9" r="3.2" fill="var(--down)"/><circle cx="814.5" cy="73.3" r="3.2" fill="var(--down)"/><circle cx="828.0" cy="102.8" r="3.2" fill="var(--up)"/>
+  <text x="34.0" y="216" text-anchor="start" class="ax">30/04</text><text x="828.0" y="216" text-anchor="end" class="ax">10/08</text>
+</svg>
+    <div class="hist-legend">
+      <span><span class="dot up"></span> Ibovespa subiu no dia</span>
+      <span><span class="dot down"></span> Ibovespa caiu</span>
+      <span class="hint">linha 50% = moeda ao ar &middot; acertou <b>33/60</b> (55%) — se a linha fica alta nos dias verdes e baixa nos vermelhos, há sinal</span>
+    </div>
+  </div>
+</section>
+<section class="leitura">
+  <div class="sub-card cadeia">
+    <h3>Cadeia de correlação <span class="hint">(o porquê)</span></h3>
+    <div class="passo"><div class="passo-top"><span class="passo-tit">Petróleo → Petrobras</span><span class="passo-num">Brent +1,56%</span></div><div class="passo-txt">Brent em forte alta; Petrobras costuma acompanhar (correlação histórica +0.54). Hoje Petrobras em alta — coerente com o petróleo.</div><div class="passo-why">💡 Petrobras é um dos maiores pesos do Ibovespa e segue o petróleo; via combustível, o Brent ainda mexe na inflação.</div></div><div class="passo"><div class="passo-top"><span class="passo-tit">Metais → Vale</span><span class="passo-num">Cobre +0,56%</span></div><div class="passo-txt">Cobre (&#x27;Dr. Copper&#x27;, termômetro de crescimento) em alta; puxa a leitura de Vale (correlação histórica +0.36). Vale hoje de lado.</div><div class="passo-why">💡 Vale é o maior peso do Ibovespa; sua receita vem de minério/metais atrelados ao crescimento global (sobretudo China).</div></div><div class="passo"><div class="passo-top"><span class="passo-tit">Inflação → juros (BR)</span><span class="passo-num">Selic 14,00%</span></div><div class="passo-txt">IPCA 12m 4,64% e Selic 14,00% a.a. → juro real ~8,9%. Juro real alto sustenta o real e atrai renda fixa, mas encarece o capital e pesa na bolsa.</div><div class="passo-why">💡 A Selic é o principal fator da leitura de índice e dólar: define o custo do dinheiro e o fluxo entre bolsa e renda fixa.</div></div><div class="passo"><div class="passo-top"><span class="passo-tit">Juros global → risco</span><span class="passo-num">10a +0,30%</span></div><div class="passo-txt">Treasury 10a com yield em alta. Juro global subindo encarece o dinheiro e pressiona bolsas/emergentes.</div><div class="passo-why">💡 O Treasury de 10 anos é o retorno &#x27;sem risco&#x27; de referência do mundo; quando sobe, capital sai de ativos de risco e de emergentes.</div></div><div class="passo"><div class="passo-top"><span class="passo-tit">DXY → real / emergentes</span><span class="passo-num">DXY +0,13%</span></div><div class="passo-txt">DXY (dólar no mundo) em alta (correlação histórica -0.25). Dólar forte lá fora pressiona emergentes e o real — vento contra o Ibov. USD/BRL hoje em queda.</div><div class="passo-why">💡 O DXY (dólar contra as principais moedas) é o termômetro de risco dos emergentes: dita o fluxo estrangeiro pra bolsa brasileira e o valor do real.</div></div>
+  </div>
+  <div class="sub-card cadeia">
+    <h3>Commodities → setores <span class="hint">(read-through)</span></h3>
+    <div class="passo"><div class="passo-top"><span class="passo-tit">Petróleo (Brent)</span><span class="passo-num">+1,56%</span></div><div class="passo-txt">Em alta: pressiona a inflação e favorece Petrobras e petrolíferas; se for choque de oferta (OPEP+ ou geopolítica), pode assustar os juros.</div><div class="passo-why">💡 Preço internacional do petróleo. Move a inflação global (combustível, frete) e é o principal driver da Petrobras e de todo o setor de energia.</div></div><div class="passo"><div class="passo-top"><span class="passo-tit">Cobre (Dr. Copper)</span><span class="passo-num">+0,56%</span></div><div class="passo-txt">Em alta: sinaliza expectativa de crescimento — favorável a mineração (Vale) e a ativos de emergentes.</div><div class="passo-why">💡 Metal industrial presente em tudo (construção, eletrônicos, energia). Apelidado &#x27;Dr. Copper&#x27; porque a demanda por ele antecipa o crescimento econômico global.</div></div><div class="passo"><div class="passo-top"><span class="passo-tit">Ouro</span><span class="passo-num">+1,23%</span></div><div class="passo-txt">Em alta: busca por proteção / hedge — costuma indicar aversão a risco no mercado.</div><div class="passo-why">💡 Reserva de valor e refúgio clássico. Não paga juro, então brilha quando há medo, inflação alta ou juro real baixo (o custo de oportunidade de segurá-lo cai).</div></div><div class="passo"><div class="passo-top"><span class="passo-tit">Prata</span><span class="passo-num">+1,28%</span></div><div class="passo-txt">Em alta: refúgio + demanda industrial firme puxando junto.</div><div class="passo-why">💡 Metade refúgio (como o ouro), metade industrial (painel solar, eletrônicos). Costuma amplificar os movimentos do ouro.</div></div><div class="passo"><div class="passo-top"><span class="passo-tit">Platina / Paládio</span><span class="passo-num">-0,09%</span></div><div class="passo-txt">De lado: indústria em ritmo estável, sem novidade.</div><div class="passo-why">💡 Usados em catalisadores de veículos. Funcionam como proxy da indústria automotiva e do ciclo industrial.</div></div>
+  </div>
+  <div class="sub-card macro">
+      <h3>Macro &mdash; inflação e juros <span class="hint">(FRED / BCB)</span> <span class="jr">juro real BR ~8,9%</span></h3>
+      <div class="macro-cols">
+        <div class="macro-col"><h4>Estados Unidos</h4><div class="ind"><div class="ind-top"><span class="ind-nome">CPI (cheio) <span class="hint">(acum. 12m)</span></span><span class="ind-val">3,73%</span></div><div class="ind-why">Inflação ao consumidor dos EUA — o dado que mais move os mercados no mundo. Define o ritmo de juros do Fed, que por sua vez move dólar, Treasuries e apetite a risco.</div></div><div class="ind"><div class="ind-top"><span class="ind-nome">CPI núcleo <span class="hint">(acum. 12m)</span></span><span class="ind-val">2,81%</span></div><div class="ind-why">CPI sem alimentos e energia (voláteis). O Fed olha mais o núcleo porque é a inflação &#x27;estrutural&#x27; — a que a política de juros de fato consegue combater.</div></div><div class="ind"><div class="ind-top"><span class="ind-nome">PPI <span class="hint">(acum. 12m)</span></span><span class="ind-val">10,11%</span></div><div class="ind-why">Inflação ao produtor (preços na porta da fábrica). Antecede o CPI: pressão no PPI hoje tende a virar inflação ao consumidor amanhã.</div></div><div class="ind"><div class="ind-top"><span class="ind-nome">Desemprego</span><span class="ind-val">4,10%</span></div><div class="ind-why">O Fed tem mandato duplo (inflação + emprego). Desemprego baixo dá folga p/ manter juro alto; se dispara, força o Fed a cortar.</div></div><div class="ind"><div class="ind-top"><span class="ind-nome">Jobless claims</span><span class="ind-val">199 mil</span></div><div class="ind-why">Pedidos semanais de seguro-desemprego — termômetro de alta frequência do mercado de trabalho. Subindo = economia esfriando.</div></div><div class="ind"><div class="ind-top"><span class="ind-nome">Fed funds</span><span class="ind-val">3,63% a.a.</span></div><div class="ind-why">Juro básico dos EUA: o custo do dinheiro no mundo e o piso do retorno &#x27;sem risco&#x27; global. Juro alto lá suga capital dos emergentes (Brasil incluso).</div></div></div>
+        <div class="macro-col"><h4>Brasil</h4><div class="ind"><div class="ind-top"><span class="ind-nome">Selic meta</span><span class="ind-val">14,00% a.a.</span></div><div class="ind-why">Taxa básica de juros do Brasil (Copom). Ancora toda a curva de juros (DI). Juro alto atrai capital e segura o real, mas encarece o crédito e desvia fluxo da bolsa p/ a renda fixa — é o principal fator da leitura de índice e dólar.</div></div><div class="ind"><div class="ind-top"><span class="ind-nome">CDI</span><span class="ind-val">13,90% a.a.</span></div><div class="ind-why">Juro do interbancário, colado na Selic. É o custo de oportunidade de todo investimento no país — o famoso &#x27;bater o CDI&#x27;.</div></div><div class="ind"><div class="ind-top"><span class="ind-nome">IPCA <span class="hint">(acum. 12m)</span></span><span class="ind-val">4,64%</span></div><div class="ind-why">Inflação oficial do Brasil. Comparada à meta (3% ±1,5) dita se o Banco Central sobe ou corta a Selic. É o gatilho da política de juros.</div></div><div class="ind"><div class="ind-top"><span class="ind-nome">IPCA <span class="hint">(mês)</span></span><span class="ind-val">0,16%</span></div><div class="ind-why">Inflação oficial do Brasil. Comparada à meta (3% ±1,5) dita se o Banco Central sobe ou corta a Selic. É o gatilho da política de juros.</div></div><div class="ind"><div class="ind-top"><span class="ind-nome">IPCA-15 <span class="hint">(mês)</span></span><span class="ind-val">0,06%</span></div><div class="ind-why">Prévia do IPCA (coletada por volta do meio do mês). Antecipa a tendência de preços antes do índice cheio.</div></div></div>
+      </div>
+      <ul class="notas"><li>IPCA 12m em 4,64% — acima da meta (3% ±1,5).</li><li>Selic meta 14,00% a.a. → juro real ~8,9%. Juro real alto atrai fluxo p/ renda fixa e pressiona a bolsa, mas sustenta o real.</li><li>Nos EUA, CPI 3,7% com Fed funds 3,63% — inflação ainda acima do conforto do Fed (2%), viés de juro alto por mais tempo.</li></ul>
+    </div>
+  <div class="sub-card">
+      <h3>Bolsas mundiais → Ibovespa <span class="hint">(co-movimento histórico, 2 anos)</span></h3>
+      <div class="barchart"><div class="bar-row">
+      <div class="bar-lbl">Quando a Ásia fecha majoritariamente em alta, o Ibovespa fecha em alta
+        <span class="hint">base 52% · +4 p.p. · n=203</span></div>
+      <div class="bar-track">
+        <div class="bar-fill positivo" style="width:56%"></div>
+        <div class="bar-base" style="left:52%" title="base histórica 52%"></div>
+      </div>
+      <div class="bar-val">56%</div>
+    </div><div class="bar-row">
+      <div class="bar-lbl">Quando a Europa fecha em alta, o Ibovespa fecha em alta
+        <span class="hint">base 53% · +6 p.p. · n=278</span></div>
+      <div class="bar-track">
+        <div class="bar-fill positivo" style="width:58%"></div>
+        <div class="bar-base" style="left:53%" title="base histórica 53%"></div>
+      </div>
+      <div class="bar-val">58%</div>
+    </div><div class="bar-row">
+      <div class="bar-lbl">Quando o S&amp;P 500 sobe no dia, o Ibovespa sobe
+        <span class="hint">base 52% · +10 p.p. · n=259</span></div>
+      <div class="bar-track">
+        <div class="bar-fill positivo" style="width:62%"></div>
+        <div class="bar-base" style="left:52%" title="base histórica 52%"></div>
+      </div>
+      <div class="bar-val">62%</div>
+    </div><div class="bar-row">
+      <div class="bar-lbl">Quando o EWZ (Ibov em NY) sobe, o Ibovespa sobe
+        <span class="hint">base 52% · +33 p.p. · n=237</span></div>
+      <div class="bar-track">
+        <div class="bar-fill positivo" style="width:85%"></div>
+        <div class="bar-base" style="left:52%" title="base histórica 52%"></div>
+      </div>
+      <div class="bar-val">85%</div>
+    </div></div>
+    </div>
+  <div class="sub-card">
+      <h3>Correlações-chave <span class="hint">(retornos diários, 2 anos)</span></h3>
+      <div class="barchart"><div class="bar-row">
+      <div class="bar-lbl">Ibovespa × Dow Jones</div>
+      <div class="bar-track diverg">
+        <div class="bar-zero"></div>
+        <div class="bar-fill pos" style="left:50.0%;width:20.9%"></div>
+      </div>
+      <div class="bar-val">+0,42</div>
+    </div><div class="bar-row">
+      <div class="bar-lbl">Ibovespa × S&amp;P 500</div>
+      <div class="bar-track diverg">
+        <div class="bar-zero"></div>
+        <div class="bar-fill pos" style="left:50.0%;width:20.2%"></div>
+      </div>
+      <div class="bar-val">+0,40</div>
+    </div><div class="bar-row">
+      <div class="bar-lbl">Ibovespa × EWZ</div>
+      <div class="bar-track diverg">
+        <div class="bar-zero"></div>
+        <div class="bar-fill pos" style="left:50.0%;width:45.7%"></div>
+      </div>
+      <div class="bar-val">+0,91</div>
+    </div><div class="bar-row">
+      <div class="bar-lbl">Ibovespa × Nikkei</div>
+      <div class="bar-track diverg">
+        <div class="bar-zero"></div>
+        <div class="bar-fill pos" style="left:50.0%;width:5.1%"></div>
+      </div>
+      <div class="bar-val">+0,10</div>
+    </div><div class="bar-row">
+      <div class="bar-lbl">Ibovespa × DXY</div>
+      <div class="bar-track diverg">
+        <div class="bar-zero"></div>
+        <div class="bar-fill neg" style="left:37.6%;width:12.4%"></div>
+      </div>
+      <div class="bar-val">-0,25</div>
+    </div><div class="bar-row">
+      <div class="bar-lbl">Petrobras × Brent</div>
+      <div class="bar-track diverg">
+        <div class="bar-zero"></div>
+        <div class="bar-fill pos" style="left:50.0%;width:26.9%"></div>
+      </div>
+      <div class="bar-val">+0,54</div>
+    </div><div class="bar-row">
+      <div class="bar-lbl">Vale × Cobre</div>
+      <div class="bar-track diverg">
+        <div class="bar-zero"></div>
+        <div class="bar-fill pos" style="left:50.0%;width:18.2%"></div>
+      </div>
+      <div class="bar-val">+0,36</div>
+    </div></div>
+    </div>
+  <div class="sub-card full"><h3>Prévia externa &amp; contexto</h3><ul class="notas"><li>Bolsas majoritariamente em alta (16/19).</li><li>VIX disparando (+3.5%) — medo em alta.</li><li>Procura por proteção: ouro (+1.2%), franco suíço.</li><li>EWZ (ações brasileiras negociadas em NY) fechou em forte queda (-1.31%) — prévia dolarizada; sinaliza o humor externo sobre o Brasil antes da abertura aqui.</li></ul></div>
+</section>
+<main class="grid">
+<section class="bloco b0">
+  <h2>Ásia / Oceania</h2>
+  <div class="bloco-sub">Primeiras bolsas a fechar no dia (fuso). Dão o humor inicial e antecipam a abertura de Europa e Brasil. Muito puxadas por China e commodities.</div>
+  <table>
+    <thead><tr><th>Ativo</th><th>Ticker</th><th>Últ.</th><th>Var. dia</th></tr></thead>
+    <tbody>
+<tr class="up"><td class="nome">Nikkei (Japão)</td><td class="tk">^N225</td><td class="px">66.970</td><td class="var">▲ +2,08%</td></tr>
+<tr class="down"><td class="nome">ASX (Austrália)</td><td class="tk">^AXJO</td><td class="px">9.233</td><td class="var">▼ -0,33%</td></tr>
+<tr class="up"><td class="nome">Shanghai</td><td class="tk">000001.SS</td><td class="px">3.967</td><td class="var">▲ +0,67%</td></tr>
+<tr class="up"><td class="nome">Hang Seng (HK)</td><td class="tk">^HSI</td><td class="px">25.937</td><td class="var">▲ +1,05%</td></tr>
+<tr class="up"><td class="nome">Kospi (Coreia)</td><td class="tk">^KS11</td><td class="px">6.300</td><td class="var">▲ +0,65%</td></tr>
+<tr class="up"><td class="nome">Sensex (Índia)</td><td class="tk">^BSESN</td><td class="px">78.542</td><td class="var">▲ +0,06%</td></tr>
+    </tbody>
+  </table>
+</section>
+<section class="bloco b1">
+  <h2>Europa</h2>
+  <div class="bloco-sub">Fecham durante a nossa manhã. Refinam o humor global pouco antes da abertura de Nova York e do Ibovespa.</div>
+  <table>
+    <thead><tr><th>Ativo</th><th>Ticker</th><th>Últ.</th><th>Var. dia</th></tr></thead>
+    <tbody>
+<tr class="up"><td class="nome">DAX (Alemanha)</td><td class="tk">^GDAXI</td><td class="px">26.361</td><td class="var">▲ +0,16%</td></tr>
+<tr class="up"><td class="nome">CAC (França)</td><td class="tk">^FCHI</td><td class="px">8.717</td><td class="var">▲ +0,02%</td></tr>
+<tr class="down"><td class="nome">FTSE (Reino Unido)</td><td class="tk">^FTSE</td><td class="px">10.855</td><td class="var">▼ -0,42%</td></tr>
+<tr class="up"><td class="nome">FTSE MIB (Itália)</td><td class="tk">FTSEMIB.MI</td><td class="px">53.771</td><td class="var">▲ +0,10%</td></tr>
+<tr class="up"><td class="nome">Ibex (Espanha)</td><td class="tk">^IBEX</td><td class="px">20.204</td><td class="var">▲ +0,14%</td></tr>
+<tr class="up"><td class="nome">SMI (Suíça)</td><td class="tk">^SSMI</td><td class="px">14.583</td><td class="var">▲ +0,26%</td></tr>
+<tr class="up"><td class="nome">Eurostoxx 50</td><td class="tk">^STOXX50E</td><td class="px">6.546</td><td class="var">▲ +0,34%</td></tr>
+    </tbody>
+  </table>
+</section>
+<section class="bloco b2">
+  <h2>EUA</h2>
+  <div class="bloco-sub">Maior mercado do mundo — dita o apetite a risco global. O fechamento de ontem + os futuros de hoje pautam a abertura do Ibov, que anda quase junto do Dow/S&amp;P.</div>
+  <table>
+    <thead><tr><th>Ativo</th><th>Ticker</th><th>Últ.</th><th>Var. dia</th></tr></thead>
+    <tbody>
+<tr class="up"><td class="nome">Dow Jones</td><td class="tk">^DJI</td><td class="px">54.037</td><td class="var">▲ +0,28%</td></tr>
+<tr class="up"><td class="nome">S&amp;P 500</td><td class="tk">^GSPC</td><td class="px">7.758</td><td class="var">▲ +0,62%</td></tr>
+<tr class="up"><td class="nome">Nasdaq</td><td class="tk">^IXIC</td><td class="px">26.691</td><td class="var">▲ +1,30%</td></tr>
+<tr class="up"><td class="nome">Russell 2000 (small caps)</td><td class="tk">^RUT</td><td class="px">3.034</td><td class="var">▲ +1,10%</td></tr>
+    </tbody>
+  </table>
+</section>
+<section class="bloco b3">
+  <h2>Brasil</h2>
+  <div class="bloco-sub">O Ibovespa é o alvo da leitura. O EWZ (Ibov em dólar, negociado em NY) é a prévia dolarizada de como o estrangeiro está vendo o Brasil.</div>
+  <table>
+    <thead><tr><th>Ativo</th><th>Ticker</th><th>Últ.</th><th>Var. dia</th></tr></thead>
+    <tbody>
+<tr class="up"><td class="nome">Ibovespa</td><td class="tk">^BVSP</td><td class="px">172.652</td><td class="var">▲ +0,08%</td></tr>
+<tr class="down"><td class="nome">EWZ (Ibov dolarizado, NY)</td><td class="tk">EWZ</td><td class="px">35,34</td><td class="var">▼ -1,31%</td></tr>
+    </tbody>
+  </table>
+</section>
+<section class="bloco b4">
+  <h2>Commodities</h2>
+  <div class="bloco-sub">O Brasil é exportador de commodities: petróleo (Petrobras) e minério/metais (Vale) são o maior peso do índice e movem a balança comercial e o real.</div>
+  <table>
+    <thead><tr><th>Ativo</th><th>Ticker</th><th>Últ.</th><th>Var. dia</th></tr></thead>
+    <tbody>
+<tr class="up"><td class="nome">Petróleo Brent</td><td class="tk">BZ=F</td><td class="px">84,85</td><td class="var">▲ +1,56%</td></tr>
+<tr class="up"><td class="nome">Petróleo WTI</td><td class="tk">CL=F</td><td class="px">79,34</td><td class="var">▲ +1,48%</td></tr>
+<tr class="up"><td class="nome">Ouro</td><td class="tk">GC=F</td><td class="px">4.394</td><td class="var">▲ +1,23%</td></tr>
+<tr class="up"><td class="nome">Prata</td><td class="tk">SI=F</td><td class="px">64,14</td><td class="var">▲ +1,28%</td></tr>
+<tr class="up"><td class="nome">Cobre</td><td class="tk">HG=F</td><td class="px">6,61</td><td class="var">▲ +0,56%</td></tr>
+<tr class="up"><td class="nome">Platina</td><td class="tk">PL=F</td><td class="px">1.752</td><td class="var">▲ +0,11%</td></tr>
+<tr class="down"><td class="nome">Paládio</td><td class="tk">PA=F</td><td class="px">1.370</td><td class="var">▼ -0,30%</td></tr>
+    </tbody>
+  </table>
+</section>
+<section class="bloco b5">
+  <h2>Câmbio</h2>
+  <div class="bloco-sub">O dólar é o termômetro de risco dos emergentes. DXY forte (dólar forte no mundo) suga fluxo do Brasil; real fraco realimenta inflação e juros.</div>
+  <table>
+    <thead><tr><th>Ativo</th><th>Ticker</th><th>Últ.</th><th>Var. dia</th></tr></thead>
+    <tbody>
+<tr class="down"><td class="nome">USD/BRL (real) <span class="inv" title="alta aqui costuma indicar aversão a risco">*</span></td><td class="tk">BRL=X</td><td class="px">5,09</td><td class="var">▼ -0,60%</td></tr>
+<tr class="up"><td class="nome">DXY (dólar index)</td><td class="tk">DX-Y.NYB</td><td class="px">99,73</td><td class="var">▲ +0,13%</td></tr>
+<tr class="up"><td class="nome">EUR/USD</td><td class="tk">EURUSD=X</td><td class="px">1,16</td><td class="var">▲ +0,28%</td></tr>
+<tr class="up"><td class="nome">GBP/USD (libra)</td><td class="tk">GBPUSD=X</td><td class="px">1,35</td><td class="var">▲ +0,37%</td></tr>
+<tr class="up"><td class="nome">USD/JPY (iene)</td><td class="tk">JPY=X</td><td class="px">158,95</td><td class="var">▲ +0,34%</td></tr>
+<tr class="down"><td class="nome">USD/CHF (franco)</td><td class="tk">CHF=X</td><td class="px">0,8094</td><td class="var">▼ -0,37%</td></tr>
+<tr class="down"><td class="nome">USD/ZAR (rand)</td><td class="tk">ZAR=X</td><td class="px">16,18</td><td class="var">▼ -1,01%</td></tr>
+<tr class="down"><td class="nome">USD/MXN (peso)</td><td class="tk">MXN=X</td><td class="px">17,14</td><td class="var">▼ -0,35%</td></tr>
+<tr class="up"><td class="nome">AUD/USD (dólar aus.)</td><td class="tk">AUDUSD=X</td><td class="px">0,7060</td><td class="var">▲ +0,38%</td></tr>
+    </tbody>
+  </table>
+</section>
+<section class="bloco b6">
+  <h2>Renda fixa / Volatilidade</h2>
+  <div class="bloco-sub">Os juros (Treasuries) definem o custo global do dinheiro; VIX/VXN medem o medo. VIX acima de 20 acende alerta de realização nas bolsas.</div>
+  <table>
+    <thead><tr><th>Ativo</th><th>Ticker</th><th>Últ.</th><th>Var. dia</th></tr></thead>
+    <tbody>
+<tr class="up"><td class="nome">Treasury 5 anos <span class="inv" title="alta aqui costuma indicar aversão a risco">*</span></td><td class="tk">^FVX</td><td class="px">4,38</td><td class="var">▲ +0,48%</td></tr>
+<tr class="up"><td class="nome">Treasury 10 anos <span class="inv" title="alta aqui costuma indicar aversão a risco">*</span></td><td class="tk">^TNX</td><td class="px">4,67</td><td class="var">▲ +0,30%</td></tr>
+<tr class="up"><td class="nome">Treasury 30 anos <span class="inv" title="alta aqui costuma indicar aversão a risco">*</span></td><td class="tk">^TYX</td><td class="px">5,22</td><td class="var">▲ +0,17%</td></tr>
+<tr class="up"><td class="nome">VIX (vol. S&amp;P) <span class="inv" title="alta aqui costuma indicar aversão a risco">*</span></td><td class="tk">^VIX</td><td class="px">15,42</td><td class="var">▲ +3,49%</td></tr>
+<tr class="down"><td class="nome">VXN (vol. Nasdaq) <span class="inv" title="alta aqui costuma indicar aversão a risco">*</span></td><td class="tk">^VXN</td><td class="px">22,82</td><td class="var">▼ -4,72%</td></tr>
+    </tbody>
+  </table>
+</section>
+<section class="bloco b7">
+  <h2>Ações / eventos</h2>
+  <div class="bloco-sub">Ações-chave e eventos (balanços) que movem os índices: Petrobras e Vale no Brasil; bancos e techs (Nvidia) nos EUA.</div>
+  <table>
+    <thead><tr><th>Ativo</th><th>Ticker</th><th>Últ.</th><th>Var. dia</th></tr></thead>
+    <tbody>
+<tr class="up"><td class="nome">Petrobras</td><td class="tk">PETR4.SA</td><td class="px">41,24</td><td class="var">▲ +0,91%</td></tr>
+<tr class="up"><td class="nome">Vale</td><td class="tk">VALE3.SA</td><td class="px">75,02</td><td class="var">▲ +0,07%</td></tr>
+<tr class="up"><td class="nome">Nvidia</td><td class="tk">NVDA</td><td class="px">223,96</td><td class="var">▲ +2,27%</td></tr>
+<tr class="up"><td class="nome">JPMorgan</td><td class="tk">JPM</td><td class="px">357,52</td><td class="var">▲ +0,34%</td></tr>
+<tr class="up"><td class="nome">Goldman Sachs</td><td class="tk">GS</td><td class="px">1.040</td><td class="var">▲ +0,68%</td></tr>
+<tr class="up"><td class="nome">Bank of America</td><td class="tk">BAC</td><td class="px">63,17</td><td class="var">▲ +0,27%</td></tr>
+    </tbody>
+  </table>
+</section>
+</main>
+</section>
+<section class="tab smc hide-fvg" id="tab-smc" hidden>
+  <div class="sub-card full">
+    <h3>Análise SMC &mdash; Ibovespa
+      <span class="hint">(semanal = viés · diário = gatilho · swings + BOS/CHoCH + OB/FVG/liquidez · força 4)</span></h3>
+    <div class="smc-toggles">
+      <span class="tgl-lbl">Camadas</span>
+      <label><input type="checkbox" checked onchange="tglLayer('swings',this.checked)"> swings</label>
+      <label><input type="checkbox" checked onchange="tglLayer('estrutura',this.checked)"> BOS/CHoCH</label>
+      <label><input type="checkbox" checked onchange="tglLayer('ob',this.checked)"> Order Blocks</label>
+      <label><input type="checkbox" onchange="tglLayer('fvg',this.checked)"> FVG</label>
+      <label><input type="checkbox" checked onchange="tglLayer('liq',this.checked)"> Liquidez</label>
+    </div>
+    <div class="smc-legend">
+      <span><span class="sw-dot"></span> swing point</span>
+      <span><span class="ev-dash up"></span> rompimento alta</span>
+      <span><span class="ev-dash down"></span> rompimento baixa</span>
+      <span><span class="z-swatch" style="background:var(--smc-demand)"></span> OB compra (demanda)</span>
+      <span><span class="z-swatch" style="background:var(--smc-supply)"></span> OB venda (oferta)</span>
+      <span><span class="z-swatch" style="background:var(--smc-fvg)"></span> FVG</span>
+      <span><span class="z-swatch" style="background:var(--smc-liq)"></span> liquidez (BSL/SSL)</span>
+    </div>
+  </div>
+  <div class="sub-card full decisao flat">
+    <div class="dec-head">
+      <span class="dec-tit">O que eu faria agora</span>
+      <span class="dec-acao flat">🟡 ESPERAR</span>
+      <span class="conflito-flag">⚠️ conflito de timeframes</span>
+    </div>
+    <div class="dec-ctrl">Quem está no controle: <b>vendedores</b> <span class="hint">(viés do semanal)</span></div>
+    <ul class="dec-motivos"><li>CONFLITO: semanal baixa vs diário alta. O HTF manda no viés; não operar a favor do diário contra a estrutura semanal.</li><li>Esperar o diário voltar a favor do semanal antes de agir.</li><li>Regra de ouro: HTF (semanal) = viés · LTF (diário) = gatilho. Nunca operar contra a estrutura só porque o preço chegou num Order Block.</li></ul>
+  </div>
+  <div class="tf-grid">
+    <div class="tf-card">
+    <div class="smc-head">
+      <span class="tf-nome">Semanal</span>
+      <span class="smc-badge down">BAIXISTA</span>
+      <span class="hint">0 OB frescos · 6 FVG abertos</span>
+    </div>
+    <svg class="candles" viewBox="0 0 1520 470" preserveAspectRatio="xMidYMid meet" role="img" aria-label="candlestick com estrutura SMC">
+  <line x1="10.0" y1="440.0" x2="1446.0" y2="440.0" stroke="var(--line)" stroke-width="1"/><text x="1452.0" y="443.0" class="ax" text-anchor="start">127.482</text><line x1="10.0" y1="334.0" x2="1446.0" y2="334.0" stroke="var(--line)" stroke-width="1"/><text x="1452.0" y="337.0" class="ax" text-anchor="start">146.467</text><line x1="10.0" y1="228.0" x2="1446.0" y2="228.0" stroke="var(--line)" stroke-width="1"/><text x="1452.0" y="231.0" class="ax" text-anchor="start">165.452</text><line x1="10.0" y1="122.0" x2="1446.0" y2="122.0" stroke="var(--line)" stroke-width="1"/><text x="1452.0" y="125.0" class="ax" text-anchor="start">184.438</text><line x1="10.0" y1="16.0" x2="1446.0" y2="16.0" stroke="var(--line)" stroke-width="1"/><text x="1452.0" y="19.0" class="ax" text-anchor="start">203.423</text>
+  <g class="lyr lyr-ob"><rect x="38.5" y="361.5" width="1407.5" height="28.5" class="ob supply" fill-opacity="0.08"/><text x="41.5" y="372.5" class="zlbl supply">OB venda (mit.)</text><rect x="134.2" y="401.6" width="1311.8" height="15.7" class="ob demand" fill-opacity="0.08"/><text x="137.2" y="412.6" class="zlbl demand">OB compra (mit.)</text><rect x="373.5" y="344.8" width="1072.5" height="24.0" class="ob demand" fill-opacity="0.08"/><text x="376.5" y="355.8" class="zlbl demand">OB compra (mit.)</text><rect x="660.7" y="246.9" width="785.3" height="13.2" class="ob demand" fill-opacity="0.08"/><text x="663.7" y="257.9" class="zlbl demand">OB compra (mit.)</text><rect x="924.0" y="131.1" width="522.0" height="43.3" class="ob demand ativo" fill-opacity="0.26"/><text x="927.0" y="142.1" class="zlbl demand">OB compra (mit.)</text><rect x="995.8" y="48.8" width="450.2" height="65.2" class="ob supply ativo" fill-opacity="0.26"/><text x="998.8" y="59.8" class="zlbl supply">OB venda (mit.)</text></g>
+  <g class="lyr lyr-fvg"><rect x="229.9" y="372.4" width="1216.1" height="8.4" class="fvg" fill-opacity="0.17"/><rect x="421.4" y="335.6" width="1024.6" height="15.3" class="fvg" fill-opacity="0.17"/><rect x="445.3" y="316.8" width="1000.7" height="12.9" class="fvg" fill-opacity="0.17"/><rect x="1043.7" y="61.0" width="402.3" height="22.5" class="fvg" fill-opacity="0.17"/><rect x="1067.6" y="91.2" width="378.4" height="7.2" class="fvg" fill-opacity="0.17"/><rect x="1402.7" y="180.9" width="43.3" height="6.3" class="fvg" fill-opacity="0.17"/></g>
+  <g class="lyr lyr-liq"></g>
+  <line x1="22.0" y1="380.4" x2="22.0" y2="394.9" class="wick down"/><rect x="14.5" y="386.2" width="14.8" height="1.4" class="body down"/><line x1="45.9" y1="361.5" x2="45.9" y2="390.0" class="wick up"/><rect x="38.5" y="361.9" width="14.8" height="25.8" class="body up"/><line x1="69.8" y1="362.6" x2="69.8" y2="395.1" class="wick down"/><rect x="62.4" y="363.0" width="14.8" height="28.4" class="body down"/><line x1="93.8" y1="391.4" x2="93.8" y2="407.5" class="wick down"/><rect x="86.3" y="391.4" width="14.8" height="15.7" class="body down"/><line x1="117.7" y1="393.7" x2="117.7" y2="407.6" class="wick up"/><rect x="110.3" y="406.3" width="14.8" height="1.0" class="body up"/><line x1="141.6" y1="401.6" x2="141.6" y2="417.3" class="wick down"/><rect x="134.2" y="406.2" width="14.8" height="6.1" class="body down"/><line x1="165.6" y1="386.8" x2="165.6" y2="412.3" class="wick up"/><rect x="158.1" y="392.9" width="14.8" height="19.4" class="body up"/><line x1="189.5" y1="379.0" x2="189.5" y2="395.3" class="wick up"/><rect x="182.1" y="390.5" width="14.8" height="2.4" class="body up"/><line x1="213.4" y1="380.9" x2="213.4" y2="404.3" class="wick up"/><rect x="206.0" y="381.5" width="14.8" height="9.1" class="body up"/><line x1="237.4" y1="356.8" x2="237.4" y2="386.5" class="wick up"/><rect x="229.9" y="362.2" width="14.8" height="19.3" class="body up"/><line x1="261.3" y1="351.1" x2="261.3" y2="372.4" class="wick up"/><rect x="253.9" y="355.4" width="14.8" height="6.8" class="body up"/><line x1="285.2" y1="347.7" x2="285.2" y2="362.7" class="wick down"/><rect x="277.8" y="355.4" width="14.8" height="2.1" class="body down"/><line x1="309.2" y1="334.4" x2="309.2" y2="357.3" class="wick up"/><rect x="301.7" y="337.4" width="14.8" height="19.9" class="body up"/><line x1="333.1" y1="330.0" x2="333.1" y2="347.1" class="wick down"/><rect x="325.7" y="337.4" width="14.8" height="2.3" class="body down"/><line x1="357.0" y1="327.8" x2="357.0" y2="349.8" class="wick down"/><rect x="349.6" y="339.7" width="14.8" height="7.0" class="body down"/><line x1="381.0" y1="344.8" x2="381.0" y2="368.8" class="wick down"/><rect x="373.5" y="346.6" width="14.8" height="19.7" class="body down"/><line x1="404.9" y1="351.0" x2="404.9" y2="366.3" class="wick up"/><rect x="397.5" y="351.1" width="14.8" height="15.2" class="body up"/><line x1="428.8" y1="329.7" x2="428.8" y2="351.1" class="wick up"/><rect x="421.4" y="335.6" width="14.8" height="15.5" class="body up"/><line x1="452.8" y1="316.3" x2="452.8" y2="335.6" class="wick up"/><rect x="445.3" y="316.8" width="14.8" height="18.8" class="body up"/><line x1="476.7" y1="290.0" x2="476.7" y2="316.8" class="wick up"/><rect x="469.3" y="291.6" width="14.8" height="25.2" class="body up"/><line x1="500.6" y1="267.0" x2="500.6" y2="291.6" class="wick up"/><rect x="493.2" y="271.1" width="14.8" height="20.5" class="body up"/><line x1="524.6" y1="270.2" x2="524.6" y2="294.3" class="wick down"/><rect x="517.1" y="271.0" width="14.8" height="16.6" class="body down"/><line x1="548.5" y1="260.2" x2="548.5" y2="289.0" class="wick up"/><rect x="541.1" y="263.6" width="14.8" height="24.0" class="body up"/><line x1="572.4" y1="230.3" x2="572.4" y2="275.2" class="wick down"/><rect x="565.0" y="263.6" width="14.8" height="9.5" class="body down"/><line x1="596.4" y1="251.4" x2="596.4" y2="285.3" class="wick up"/><rect x="588.9" y="254.2" width="14.8" height="19.0" class="body up"/><line x1="620.3" y1="241.3" x2="620.3" y2="278.8" class="wick down"/><rect x="612.9" y="254.2" width="14.8" height="12.8" class="body down"/><line x1="644.2" y1="253.3" x2="644.2" y2="273.5" class="wick up"/><rect x="636.8" y="253.4" width="14.8" height="13.5" class="body up"/><line x1="668.2" y1="246.9" x2="668.2" y2="260.1" class="wick down"/><rect x="660.7" y="253.4" width="14.8" height="2.0" class="body down"/><line x1="692.1" y1="234.6" x2="692.1" y2="257.2" class="wick up"/><rect x="684.7" y="239.6" width="14.8" height="15.8" class="body up"/><line x1="716.0" y1="224.6" x2="716.0" y2="248.6" class="wick up"/><rect x="708.6" y="231.6" width="14.8" height="8.0" class="body up"/><line x1="740.0" y1="143.8" x2="740.0" y2="238.5" class="wick up"/><rect x="732.5" y="153.1" width="14.8" height="78.5" class="body up"/><line x1="763.9" y1="110.8" x2="763.9" y2="159.7" class="wick up"/><rect x="756.5" y="139.2" width="14.8" height="14.0" class="body up"/><line x1="787.8" y1="105.8" x2="787.8" y2="145.3" class="wick up"/><rect x="780.4" y="130.3" width="14.8" height="8.8" class="body up"/><line x1="811.8" y1="87.8" x2="811.8" y2="130.3" class="wick up"/><rect x="804.3" y="110.7" width="14.8" height="19.6" class="body up"/><line x1="835.7" y1="86.9" x2="835.7" y2="118.9" class="wick up"/><rect x="828.3" y="88.0" width="14.8" height="22.7" class="body up"/><line x1="859.6" y1="76.3" x2="859.6" y2="99.4" class="wick down"/><rect x="852.2" y="88.0" width="14.8" height="9.7" class="body down"/><line x1="883.6" y1="90.3" x2="883.6" y2="154.8" class="wick down"/><rect x="876.1" y="97.7" width="14.8" height="52.6" class="body down"/><line x1="907.5" y1="114.9" x2="907.5" y2="161.7" class="wick down"/><rect x="900.1" y="150.3" width="14.8" height="9.6" class="body down"/><line x1="931.4" y1="131.1" x2="931.4" y2="174.5" class="wick down"/><rect x="924.0" y="159.9" width="14.8" height="8.0" class="body down"/><line x1="955.4" y1="111.0" x2="955.4" y2="167.9" class="wick up"/><rect x="947.9" y="138.1" width="14.8" height="29.8" class="body up"/><line x1="979.3" y1="95.1" x2="979.3" y2="138.1" class="wick up"/><rect x="971.9" y="101.8" width="14.8" height="36.2" class="body up"/><line x1="1003.2" y1="48.8" x2="1003.2" y2="113.9" class="wick up"/><rect x="995.8" y="50.1" width="14.8" height="51.8" class="body up"/><line x1="1027.2" y1="38.7" x2="1027.2" y2="61.0" class="wick down"/><rect x="1019.7" y="50.1" width="14.8" height="8.9" class="body down"/><line x1="1051.1" y1="53.4" x2="1051.1" y2="91.2" class="wick down"/><rect x="1043.7" y="58.9" width="14.8" height="27.9" class="body down"/><line x1="1075.0" y1="83.5" x2="1075.0" y2="121.6" class="wick down"/><rect x="1067.6" y="86.8" width="14.8" height="19.1" class="body down"/><line x1="1099.0" y1="98.3" x2="1099.0" y2="130.8" class="wick down"/><rect x="1091.5" y="105.9" width="14.8" height="17.9" class="body down"/><line x1="1122.9" y1="121.5" x2="1122.9" y2="172.4" class="wick down"/><rect x="1115.5" y="123.9" width="14.8" height="38.1" class="body down"/><line x1="1146.8" y1="154.9" x2="1146.8" y2="182.8" class="wick down"/><rect x="1139.4" y="162.0" width="14.8" height="6.0" class="body down"/><line x1="1170.8" y1="159.0" x2="1170.8" y2="187.6" class="wick down"/><rect x="1163.3" y="167.9" width="14.8" height="13.5" class="body down"/><line x1="1194.7" y1="175.3" x2="1194.7" y2="208.7" class="wick down"/><rect x="1187.3" y="181.4" width="14.8" height="26.6" class="body down"/><line x1="1218.6" y1="188.4" x2="1218.6" y2="213.4" class="wick up"/><rect x="1211.2" y="196.3" width="14.8" height="11.7" class="body up"/><line x1="1242.6" y1="179.0" x2="1242.6" y2="215.7" class="wick down"/><rect x="1235.1" y="196.3" width="14.8" height="14.3" class="body down"/><line x1="1266.5" y1="180.5" x2="1266.5" y2="212.0" class="wick up"/><rect x="1259.1" y="184.2" width="14.8" height="27.7" class="body up"/><line x1="1290.4" y1="176.6" x2="1290.4" y2="204.5" class="wick up"/><rect x="1283.0" y="178.8" width="14.8" height="5.4" class="body up"/><line x1="1314.4" y1="158.7" x2="1314.4" y2="202.8" class="wick up"/><rect x="1306.9" y="158.7" width="14.8" height="21.3" class="body up"/><line x1="1338.3" y1="157.1" x2="1338.3" y2="184.3" class="wick down"/><rect x="1330.9" y="158.7" width="14.8" height="23.2" class="body down"/><line x1="1362.2" y1="158.5" x2="1362.2" y2="190.2" class="wick up"/><rect x="1354.8" y="180.0" width="14.8" height="1.8" class="body up"/><line x1="1386.2" y1="153.9" x2="1386.2" y2="180.9" class="wick up"/><rect x="1378.7" y="157.9" width="14.8" height="22.1" class="body up"/><line x1="1410.1" y1="143.0" x2="1410.1" y2="190.7" class="wick down"/><rect x="1402.7" y="157.9" width="14.8" height="30.7" class="body down"/><line x1="1434.0" y1="187.2" x2="1434.0" y2="189.3" class="wick up"/><rect x="1426.6" y="187.8" width="14.8" height="1.0" class="body up"/>
+  <g class="lyr lyr-swings"><circle cx="45.9" cy="354.5" r="2.6" class="sw-h"/><circle cx="141.6" cy="424.3" r="2.6" class="sw-l"/><circle cx="357.0" cy="320.8" r="2.6" class="sw-h"/><circle cx="381.0" cy="375.8" r="2.6" class="sw-l"/><circle cx="572.4" cy="223.3" r="2.6" class="sw-h"/><circle cx="859.6" cy="69.3" r="2.6" class="sw-h"/><circle cx="931.4" cy="181.5" r="2.6" class="sw-l"/><circle cx="1027.2" cy="31.7" r="2.6" class="sw-h"/><circle cx="1242.6" cy="222.7" r="2.6" class="sw-l"/></g>
+  <g class="lyr lyr-estrutura"><line x1="22.0" y1="402.9" x2="93.8" y2="402.9" class="ev down" stroke-dasharray="4,3"/><text x="96.8" y="398.9" class="ev-lbl down">CHoCH</text><line x1="45.9" y1="361.5" x2="261.3" y2="361.5" class="ev up" stroke-dasharray="4,3"/><text x="264.3" y="357.5" class="ev-lbl up">CHoCH</text><line x1="357.0" y1="327.8" x2="452.8" y2="327.8" class="ev up" stroke-dasharray="4,3"/><text x="455.8" y="323.8" class="ev-lbl up">BOS</text><line x1="572.4" y1="230.3" x2="740.0" y2="230.3" class="ev up" stroke-dasharray="4,3"/><text x="743.0" y="226.3" class="ev-lbl up">BOS</text><line x1="859.6" y1="76.3" x2="1003.2" y2="76.3" class="ev up" stroke-dasharray="4,3"/><text x="1006.2" y="72.3" class="ev-lbl up">BOS</text><line x1="931.4" y1="174.5" x2="1170.8" y2="174.5" class="ev down" stroke-dasharray="4,3"/><text x="1173.8" y="170.5" class="ev-lbl down">CHoCH</text></g>
+  <text x="10.0" y="462" class="ax" text-anchor="start">29/06</text><text x="1446.0" y="462" class="ax" text-anchor="end">16/08</text>
+</svg>
+  </div>
+    <div class="tf-card">
+    <div class="smc-head">
+      <span class="tf-nome">Diário</span>
+      <span class="smc-badge up">ALTISTA</span>
+      <span class="hint">0 OB frescos · 8 FVG abertos</span>
+    </div>
+    <svg class="candles" viewBox="0 0 1520 470" preserveAspectRatio="xMidYMid meet" role="img" aria-label="candlestick com estrutura SMC">
+  <line x1="10.0" y1="440.0" x2="1446.0" y2="440.0" stroke="var(--line)" stroke-width="1"/><text x="1452.0" y="443.0" class="ax" text-anchor="start">165.756</text><line x1="10.0" y1="334.0" x2="1446.0" y2="334.0" stroke="var(--line)" stroke-width="1"/><text x="1452.0" y="337.0" class="ax" text-anchor="start">174.631</text><line x1="10.0" y1="228.0" x2="1446.0" y2="228.0" stroke="var(--line)" stroke-width="1"/><text x="1452.0" y="231.0" class="ax" text-anchor="start">183.506</text><line x1="10.0" y1="122.0" x2="1446.0" y2="122.0" stroke="var(--line)" stroke-width="1"/><text x="1452.0" y="125.0" class="ax" text-anchor="start">192.382</text><line x1="10.0" y1="16.0" x2="1446.0" y2="16.0" stroke="var(--line)" stroke-width="1"/><text x="1452.0" y="19.0" class="ax" text-anchor="start">201.257</text>
+  <g class="lyr lyr-ob"><rect x="48.2" y="138.5" width="1397.8" height="29.6" class="ob demand" fill-opacity="0.08"/><text x="51.2" y="149.5" class="zlbl demand">OB compra (mit.)</text><rect x="335.4" y="229.9" width="1110.6" height="28.4" class="ob demand" fill-opacity="0.08"/><text x="338.4" y="240.9" class="zlbl demand">OB compra (mit.)</text><rect x="634.5" y="166.3" width="811.5" height="22.8" class="ob supply" fill-opacity="0.08"/><text x="637.5" y="177.3" class="zlbl supply">OB venda (mit.)</text><rect x="790.1" y="299.6" width="655.9" height="15.6" class="ob supply ativo" fill-opacity="0.26"/><text x="793.1" y="310.6" class="zlbl supply">OB venda (mit.)</text><rect x="1161.1" y="365.2" width="284.9" height="24.4" class="ob demand ativo" fill-opacity="0.26"/><text x="1164.1" y="376.2" class="zlbl demand">OB compra (mit.)</text></g>
+  <g class="lyr lyr-fvg"><rect x="562.7" y="150.9" width="883.3" height="4.6" class="fvg" fill-opacity="0.17"/><rect x="574.7" y="155.5" width="871.3" height="10.4" class="fvg" fill-opacity="0.17"/><rect x="646.5" y="189.1" width="799.5" height="14.1" class="fvg" fill-opacity="0.17"/><rect x="670.4" y="231.5" width="775.6" height="15.8" class="fvg" fill-opacity="0.17"/><rect x="1412.4" y="297.5" width="33.6" height="18.8" class="fvg" fill-opacity="0.17"/><rect x="1424.3" y="323.4" width="21.7" height="32.9" class="fvg" fill-opacity="0.17"/></g>
+  <g class="lyr lyr-liq"><line x1="961.4" y1="333.6" x2="1446.0" y2="333.6" class="liq" stroke-dasharray="2,3" opacity="0.4"/><text x="1444.0" y="330.6" class="liq-lbl" text-anchor="end">BSL ✗</text><line x1="769.9" y1="287.2" x2="1446.0" y2="287.2" class="liq" stroke-dasharray="2,3" opacity="0.4"/><text x="1444.0" y="284.2" class="liq-lbl" text-anchor="end">BSL ✗</text><line x1="925.5" y1="417.3" x2="1446.0" y2="417.3" class="liq" stroke-dasharray="6,3" opacity="0.9"/><text x="1444.0" y="414.3" class="liq-lbl" text-anchor="end">SSL</text><line x1="1105.0" y1="393.3" x2="1446.0" y2="393.3" class="liq" stroke-dasharray="6,3" opacity="0.9"/><text x="1444.0" y="390.3" class="liq-lbl" text-anchor="end">SSL</text></g>
+  <line x1="16.0" y1="178.4" x2="16.0" y2="210.2" class="wick down"/><rect x="12.3" y="192.7" width="7.4" height="5.4" class="body down"/><line x1="27.9" y1="166.1" x2="27.9" y2="199.1" class="wick up"/><rect x="24.2" y="168.0" width="7.4" height="30.0" class="body up"/><line x1="39.9" y1="141.8" x2="39.9" y2="189.9" class="wick up"/><rect x="36.2" y="144.1" width="7.4" height="23.9" class="body up"/><line x1="51.9" y1="138.5" x2="51.9" y2="168.0" class="wick down"/><rect x="48.2" y="144.1" width="7.4" height="20.0" class="body down"/><line x1="63.9" y1="129.2" x2="63.9" y2="164.1" class="wick up"/><rect x="60.1" y="132.6" width="7.4" height="31.5" class="body up"/><line x1="75.8" y1="119.1" x2="75.8" y2="145.4" class="wick down"/><rect x="72.1" y="132.6" width="7.4" height="2.9" class="body down"/><line x1="87.8" y1="126.8" x2="87.8" y2="162.7" class="wick down"/><rect x="84.1" y="135.5" width="7.4" height="2.9" class="body down"/><line x1="99.8" y1="138.4" x2="99.8" y2="168.6" class="wick down"/><rect x="96.0" y="138.4" width="7.4" height="26.5" class="body down"/><line x1="111.7" y1="149.1" x2="111.7" y2="190.6" class="wick up"/><rect x="108.0" y="158.7" width="7.4" height="6.2" class="body up"/><line x1="123.7" y1="155.2" x2="123.7" y2="263.7" class="wick down"/><rect x="120.0" y="159.0" width="7.4" height="73.8" class="body down"/><line x1="135.7" y1="194.6" x2="135.7" y2="232.7" class="wick up"/><rect x="131.9" y="205.8" width="7.4" height="26.9" class="body up"/><line x1="147.6" y1="205.8" x2="147.6" y2="271.1" class="wick down"/><rect x="143.9" y="205.8" width="7.4" height="58.5" class="body down"/><line x1="159.6" y1="256.8" x2="159.6" y2="287.1" class="wick down"/><rect x="155.9" y="264.3" width="7.4" height="13.1" class="body down"/><line x1="171.6" y1="246.6" x2="171.6" y2="298.1" class="wick up"/><rect x="167.8" y="259.0" width="7.4" height="18.5" class="body up"/><line x1="183.5" y1="206.3" x2="183.5" y2="261.6" class="wick up"/><rect x="179.8" y="228.7" width="7.4" height="30.2" class="body up"/><line x1="195.5" y1="201.6" x2="195.5" y2="245.7" class="wick up"/><rect x="191.8" y="222.5" width="7.4" height="6.2" class="body up"/><line x1="207.4" y1="222.2" x2="207.4" y2="287.9" class="wick down"/><rect x="203.7" y="222.5" width="7.4" height="55.9" class="body down"/><line x1="219.4" y1="258.0" x2="219.4" y2="301.9" class="wick down"/><rect x="215.7" y="278.4" width="7.4" height="19.5" class="body down"/><line x1="231.4" y1="254.9" x2="231.4" y2="297.9" class="wick up"/><rect x="227.7" y="271.4" width="7.4" height="26.5" class="body up"/><line x1="243.3" y1="236.4" x2="243.3" y2="271.7" class="wick up"/><rect x="239.6" y="265.0" width="7.4" height="6.3" class="body up"/><line x1="255.3" y1="251.4" x2="255.3" y2="274.9" class="wick down"/><rect x="251.6" y="265.0" width="7.4" height="9.2" class="body down"/><line x1="267.3" y1="254.9" x2="267.3" y2="314.1" class="wick up"/><rect x="263.6" y="266.6" width="7.4" height="7.7" class="body up"/><line x1="279.2" y1="266.2" x2="279.2" y2="329.1" class="wick down"/><rect x="275.5" y="266.8" width="7.4" height="48.3" class="body down"/><line x1="291.2" y1="234.4" x2="291.2" y2="315.0" class="wick up"/><rect x="287.5" y="246.8" width="7.4" height="68.2" class="body up"/><line x1="303.2" y1="238.2" x2="303.2" y2="270.9" class="wick up"/><rect x="299.5" y="239.9" width="7.4" height="6.9" class="body up"/><line x1="315.1" y1="193.4" x2="315.1" y2="239.7" class="wick up"/><rect x="311.4" y="205.1" width="7.4" height="34.6" class="body up"/><line x1="327.1" y1="205.1" x2="327.1" y2="239.2" class="wick down"/><rect x="323.4" y="205.1" width="7.4" height="32.1" class="body down"/><line x1="339.1" y1="229.9" x2="339.1" y2="258.2" class="wick down"/><rect x="335.4" y="237.2" width="7.4" height="14.0" class="body down"/><line x1="351.1" y1="217.2" x2="351.1" y2="251.2" class="wick up"/><rect x="347.3" y="239.9" width="7.4" height="11.4" class="body up"/><line x1="363.0" y1="180.2" x2="363.0" y2="239.8" class="wick up"/><rect x="359.3" y="180.8" width="7.4" height="59.1" class="body up"/><line x1="375.0" y1="160.8" x2="375.0" y2="183.2" class="wick up"/><rect x="371.3" y="174.9" width="7.4" height="5.9" class="body up"/><line x1="386.9" y1="159.4" x2="386.9" y2="207.6" class="wick up"/><rect x="383.2" y="173.7" width="7.4" height="1.5" class="body up"/><line x1="398.9" y1="159.8" x2="398.9" y2="176.6" class="wick up"/><rect x="395.2" y="172.4" width="7.4" height="1.3" class="body up"/><line x1="410.9" y1="171.2" x2="410.9" y2="199.6" class="wick up"/><rect x="407.2" y="171.2" width="7.4" height="1.2" class="body up"/><line x1="422.9" y1="105.5" x2="422.9" y2="171.2" class="wick up"/><rect x="419.1" y="124.2" width="7.4" height="47.1" class="body up"/><line x1="434.8" y1="84.6" x2="434.8" y2="124.1" class="wick up"/><rect x="431.1" y="89.2" width="7.4" height="34.9" class="body up"/><line x1="446.8" y1="60.2" x2="446.8" y2="89.2" class="wick up"/><rect x="443.1" y="63.0" width="7.4" height="26.2" class="body up"/><line x1="458.8" y1="52.8" x2="458.8" y2="76.1" class="wick up"/><rect x="455.0" y="54.9" width="7.4" height="8.1" class="body up"/><line x1="470.7" y1="38.7" x2="470.7" y2="54.9" class="wick up"/><rect x="467.0" y="47.1" width="7.4" height="7.8" class="body up"/><line x1="482.7" y1="40.2" x2="482.7" y2="67.2" class="wick down"/><rect x="479.0" y="47.1" width="7.4" height="11.0" class="body down"/><line x1="494.6" y1="47.9" x2="494.6" y2="74.6" class="wick down"/><rect x="490.9" y="58.0" width="7.4" height="11.0" class="body down"/><line x1="506.6" y1="46.9" x2="506.6" y2="86.3" class="wick down"/><rect x="502.9" y="69.0" width="7.4" height="13.0" class="body down"/><line x1="518.6" y1="70.1" x2="518.6" y2="87.4" class="wick up"/><rect x="514.9" y="77.2" width="7.4" height="4.8" class="body up"/><line x1="530.5" y1="77.2" x2="530.5" y2="118.4" class="wick down"/><rect x="526.8" y="77.2" width="7.4" height="38.7" class="body down"/><line x1="542.5" y1="110.5" x2="542.5" y2="139.3" class="wick down"/><rect x="538.8" y="115.9" width="7.4" height="18.0" class="body down"/><line x1="554.5" y1="133.8" x2="554.5" y2="150.9" class="wick down"/><rect x="550.8" y="134.0" width="7.4" height="7.6" class="body down"/><line x1="566.5" y1="134.4" x2="566.5" y2="155.5" class="wick down"/><rect x="562.7" y="141.5" width="7.4" height="13.9" class="body down"/><line x1="578.4" y1="155.5" x2="578.4" y2="183.4" class="wick down"/><rect x="574.7" y="155.5" width="7.4" height="11.5" class="body down"/><line x1="590.4" y1="165.9" x2="590.4" y2="216.1" class="wick down"/><rect x="586.7" y="166.9" width="7.4" height="46.2" class="body down"/><line x1="602.4" y1="175.3" x2="602.4" y2="213.0" class="wick up"/><rect x="598.6" y="182.5" width="7.4" height="30.6" class="body up"/><line x1="614.3" y1="178.3" x2="614.3" y2="203.7" class="wick down"/><rect x="610.6" y="182.5" width="7.4" height="20.5" class="body down"/><line x1="626.3" y1="181.2" x2="626.3" y2="205.8" class="wick up"/><rect x="622.6" y="189.2" width="7.4" height="13.8" class="body up"/><line x1="638.2" y1="166.3" x2="638.2" y2="189.1" class="wick up"/><rect x="634.5" y="178.0" width="7.4" height="11.1" class="body up"/><line x1="650.2" y1="177.0" x2="650.2" y2="235.6" class="wick down"/><rect x="646.5" y="178.0" width="7.4" height="53.4" class="body down"/><line x1="662.2" y1="203.2" x2="662.2" y2="231.5" class="wick up"/><rect x="658.5" y="220.8" width="7.4" height="10.6" class="body up"/><line x1="674.1" y1="215.8" x2="674.1" y2="250.6" class="wick down"/><rect x="670.4" y="220.9" width="7.4" height="26.2" class="body down"/><line x1="686.1" y1="247.2" x2="686.1" y2="270.6" class="wick down"/><rect x="682.4" y="247.2" width="7.4" height="18.6" class="body down"/><line x1="698.1" y1="263.8" x2="698.1" y2="308.3" class="wick down"/><rect x="694.4" y="265.8" width="7.4" height="38.7" class="body down"/><line x1="710.0" y1="276.1" x2="710.0" y2="304.5" class="wick up"/><rect x="706.3" y="289.4" width="7.4" height="15.1" class="body up"/><line x1="722.0" y1="289.7" x2="722.0" y2="324.6" class="wick down"/><rect x="718.3" y="289.7" width="7.4" height="12.6" class="body down"/><line x1="734.0" y1="301.8" x2="734.0" y2="319.9" class="wick down"/><rect x="730.3" y="302.4" width="7.4" height="3.6" class="body down"/><line x1="746.0" y1="306.0" x2="746.0" y2="347.0" class="wick down"/><rect x="742.2" y="306.0" width="7.4" height="32.2" class="body down"/><line x1="757.9" y1="291.4" x2="757.9" y2="338.2" class="wick up"/><rect x="754.2" y="301.5" width="7.4" height="36.7" class="body up"/><line x1="769.9" y1="287.2" x2="769.9" y2="320.0" class="wick up"/><rect x="766.2" y="297.9" width="7.4" height="3.6" class="body up"/><line x1="781.9" y1="298.0" x2="781.9" y2="330.9" class="wick down"/><rect x="778.1" y="298.0" width="7.4" height="17.2" class="body down"/><line x1="793.8" y1="299.6" x2="793.8" y2="315.1" class="wick up"/><rect x="790.1" y="301.4" width="7.4" height="13.7" class="body up"/><line x1="805.8" y1="296.0" x2="805.8" y2="323.4" class="wick down"/><rect x="802.1" y="296.0" width="7.4" height="14.7" class="body down"/><line x1="817.8" y1="298.1" x2="817.8" y2="323.0" class="wick down"/><rect x="814.0" y="310.5" width="7.4" height="10.2" class="body down"/><line x1="829.7" y1="310.2" x2="829.7" y2="333.3" class="wick down"/><rect x="826.0" y="320.7" width="7.4" height="8.1" class="body down"/><line x1="841.7" y1="328.8" x2="841.7" y2="357.2" class="wick down"/><rect x="838.0" y="328.8" width="7.4" height="15.2" class="body down"/><line x1="853.6" y1="341.8" x2="853.6" y2="367.9" class="wick down"/><rect x="849.9" y="344.0" width="7.4" height="19.0" class="body down"/><line x1="865.6" y1="330.9" x2="865.6" y2="363.1" class="wick up"/><rect x="861.9" y="339.2" width="7.4" height="23.9" class="body up"/><line x1="877.6" y1="339.2" x2="877.6" y2="389.2" class="wick down"/><rect x="873.9" y="339.2" width="7.4" height="46.1" class="body down"/><line x1="889.5" y1="383.9" x2="889.5" y2="402.3" class="wick down"/><rect x="885.8" y="385.4" width="7.4" height="15.7" class="body down"/><line x1="901.5" y1="393.5" x2="901.5" y2="411.6" class="wick down"/><rect x="897.8" y="400.8" width="7.4" height="4.5" class="body down"/><line x1="913.5" y1="382.1" x2="913.5" y2="408.4" class="wick up"/><rect x="909.8" y="391.5" width="7.4" height="13.6" class="body up"/><line x1="925.5" y1="391.5" x2="925.5" y2="412.4" class="wick down"/><rect x="921.7" y="391.5" width="7.4" height="14.3" class="body down"/><line x1="937.4" y1="366.3" x2="937.4" y2="409.9" class="wick up"/><rect x="933.7" y="371.4" width="7.4" height="34.4" class="body up"/><line x1="949.4" y1="358.9" x2="949.4" y2="389.4" class="wick down"/><rect x="945.7" y="371.4" width="7.4" height="4.3" class="body down"/><line x1="961.4" y1="338.8" x2="961.4" y2="385.1" class="wick down"/><rect x="957.6" y="375.7" width="7.4" height="8.6" class="body down"/><line x1="973.3" y1="384.3" x2="973.3" y2="399.8" class="wick down"/><rect x="969.6" y="384.3" width="7.4" height="9.2" class="body down"/><line x1="985.3" y1="366.9" x2="985.3" y2="414.2" class="wick down"/><rect x="981.6" y="393.5" width="7.4" height="14.3" class="body down"/><line x1="997.2" y1="394.8" x2="997.2" y2="414.3" class="wick down"/><rect x="993.5" y="407.6" width="7.4" height="2.3" class="body down"/><line x1="1009.2" y1="403.8" x2="1009.2" y2="417.3" class="wick up"/><rect x="1005.5" y="406.3" width="7.4" height="3.5" class="body up"/><line x1="1021.2" y1="380.4" x2="1021.2" y2="409.3" class="wick up"/><rect x="1017.5" y="384.9" width="7.4" height="24.3" class="body up"/><line x1="1033.2" y1="368.8" x2="1033.2" y2="407.3" class="wick up"/><rect x="1029.4" y="374.3" width="7.4" height="10.7" class="body up"/><line x1="1045.1" y1="373.3" x2="1045.1" y2="393.3" class="wick down"/><rect x="1041.4" y="374.3" width="7.4" height="8.9" class="body down"/><line x1="1057.1" y1="350.2" x2="1057.1" y2="383.2" class="wick up"/><rect x="1053.4" y="365.5" width="7.4" height="17.7" class="body up"/><line x1="1069.0" y1="342.0" x2="1069.0" y2="375.9" class="wick up"/><rect x="1065.3" y="350.0" width="7.4" height="15.6" class="body up"/><line x1="1081.0" y1="342.8" x2="1081.0" y2="360.7" class="wick down"/><rect x="1077.3" y="350.0" width="7.4" height="1.1" class="body down"/><line x1="1093.0" y1="351.0" x2="1093.0" y2="382.9" class="wick down"/><rect x="1089.3" y="351.0" width="7.4" height="14.1" class="body down"/><line x1="1105.0" y1="364.3" x2="1105.0" y2="393.3" class="wick down"/><rect x="1101.2" y="365.2" width="7.4" height="3.9" class="body down"/><line x1="1116.9" y1="336.5" x2="1116.9" y2="369.0" class="wick up"/><rect x="1113.2" y="356.0" width="7.4" height="13.0" class="body up"/><line x1="1128.9" y1="333.6" x2="1128.9" y2="356.0" class="wick up"/><rect x="1125.2" y="338.4" width="7.4" height="17.6" class="body up"/><line x1="1140.8" y1="340.8" x2="1140.8" y2="369.9" class="wick down"/><rect x="1137.1" y="340.8" width="7.4" height="19.2" class="body down"/><line x1="1152.8" y1="347.0" x2="1152.8" y2="372.4" class="wick down"/><rect x="1149.1" y="360.2" width="7.4" height="5.0" class="body down"/><line x1="1164.8" y1="365.2" x2="1164.8" y2="389.6" class="wick down"/><rect x="1161.1" y="365.2" width="7.4" height="16.3" class="body down"/><line x1="1176.8" y1="354.3" x2="1176.8" y2="381.5" class="wick up"/><rect x="1173.0" y="356.6" width="7.4" height="24.9" class="body up"/><line x1="1188.7" y1="295.4" x2="1188.7" y2="356.3" class="wick up"/><rect x="1185.0" y="295.4" width="7.4" height="61.0" class="body up"/><line x1="1200.7" y1="291.9" x2="1200.7" y2="322.8" class="wick down"/><rect x="1197.0" y="295.3" width="7.4" height="25.4" class="body down"/><line x1="1212.7" y1="303.6" x2="1212.7" y2="320.7" class="wick up"/><rect x="1208.9" y="310.0" width="7.4" height="10.7" class="body up"/><line x1="1224.6" y1="309.7" x2="1224.6" y2="326.2" class="wick down"/><rect x="1220.9" y="309.7" width="7.4" height="7.8" class="body down"/><line x1="1236.6" y1="317.5" x2="1236.6" y2="347.1" class="wick down"/><rect x="1232.9" y="317.5" width="7.4" height="26.1" class="body down"/><line x1="1248.5" y1="335.5" x2="1248.5" y2="350.1" class="wick down"/><rect x="1244.8" y="343.6" width="7.4" height="1.3" class="body down"/><line x1="1260.5" y1="337.8" x2="1260.5" y2="350.8" class="wick down"/><rect x="1256.8" y="345.0" width="7.4" height="4.1" class="body down"/><line x1="1272.5" y1="344.9" x2="1272.5" y2="362.8" class="wick down"/><rect x="1268.8" y="349.0" width="7.4" height="1.0" class="body down"/><line x1="1284.5" y1="298.1" x2="1284.5" y2="349.6" class="wick up"/><rect x="1280.7" y="299.2" width="7.4" height="50.4" class="body up"/><line x1="1296.4" y1="295.0" x2="1296.4" y2="314.2" class="wick down"/><rect x="1292.7" y="299.2" width="7.4" height="9.8" class="body down"/><line x1="1308.4" y1="309.1" x2="1308.4" y2="341.0" class="wick down"/><rect x="1304.7" y="309.1" width="7.4" height="32.0" class="body down"/><line x1="1320.3" y1="323.0" x2="1320.3" y2="341.0" class="wick up"/><rect x="1316.6" y="325.6" width="7.4" height="15.4" class="body up"/><line x1="1332.3" y1="287.3" x2="1332.3" y2="325.7" class="wick up"/><rect x="1328.6" y="310.9" width="7.4" height="14.8" class="body up"/><line x1="1344.3" y1="310.9" x2="1344.3" y2="342.9" class="wick down"/><rect x="1340.6" y="310.9" width="7.4" height="32.0" class="body down"/><line x1="1356.2" y1="303.8" x2="1356.2" y2="342.9" class="wick up"/><rect x="1352.5" y="303.8" width="7.4" height="39.0" class="body up"/><line x1="1368.2" y1="285.2" x2="1368.2" y2="305.5" class="wick up"/><rect x="1364.5" y="293.8" width="7.4" height="11.2" class="body up"/><line x1="1380.2" y1="287.1" x2="1380.2" y2="308.3" class="wick down"/><rect x="1376.5" y="293.7" width="7.4" height="1.0" class="body down"/><line x1="1392.2" y1="261.8" x2="1392.2" y2="298.8" class="wick down"/><rect x="1388.4" y="293.7" width="7.4" height="1.3" class="body down"/><line x1="1404.1" y1="267.6" x2="1404.1" y2="297.5" class="wick down"/><rect x="1400.4" y="295.0" width="7.4" height="2.0" class="body down"/><line x1="1416.1" y1="297.1" x2="1416.1" y2="323.4" class="wick down"/><rect x="1412.4" y="297.1" width="7.4" height="26.0" class="body down"/><line x1="1428.0" y1="316.3" x2="1428.0" y2="363.9" class="wick down"/><rect x="1424.3" y="323.1" width="7.4" height="36.2" class="body down"/><line x1="1440.0" y1="356.4" x2="1440.0" y2="360.9" class="wick up"/><rect x="1436.3" y="357.6" width="7.4" height="1.7" class="body up"/>
+  <g class="lyr lyr-swings"><circle cx="75.8" cy="112.1" r="2.6" class="sw-h"/><circle cx="195.5" cy="194.6" r="2.6" class="sw-h"/><circle cx="279.2" cy="336.1" r="2.6" class="sw-l"/><circle cx="470.7" cy="31.7" r="2.6" class="sw-h"/><circle cx="590.4" cy="223.1" r="2.6" class="sw-l"/><circle cx="746.0" cy="354.0" r="2.6" class="sw-l"/><circle cx="769.9" cy="280.2" r="2.6" class="sw-h"/><circle cx="925.5" cy="419.4" r="2.6" class="sw-l"/><circle cx="961.4" cy="331.8" r="2.6" class="sw-h"/><circle cx="1009.2" cy="424.3" r="2.6" class="sw-l"/><circle cx="1105.0" cy="400.3" r="2.6" class="sw-l"/><circle cx="1128.9" cy="326.6" r="2.6" class="sw-h"/><circle cx="1164.8" cy="396.6" r="2.6" class="sw-l"/><circle cx="1200.7" cy="284.9" r="2.6" class="sw-h"/><circle cx="1272.5" cy="369.8" r="2.6" class="sw-l"/><circle cx="1392.2" cy="254.8" r="2.6" class="sw-h"/></g>
+  <g class="lyr lyr-estrutura"><line x1="16.0" y1="143.7" x2="63.9" y2="143.7" class="ev up" stroke-dasharray="4,3"/><text x="66.8" y="139.7" class="ev-lbl up">BOS</text><line x1="195.5" y1="201.6" x2="363.0" y2="201.6" class="ev up" stroke-dasharray="4,3"/><text x="366.0" y="197.6" class="ev-lbl up">BOS</text><line x1="590.4" y1="216.1" x2="650.2" y2="216.1" class="ev down" stroke-dasharray="4,3"/><text x="653.2" y="212.1" class="ev-lbl down">CHoCH</text><line x1="746.0" y1="347.0" x2="853.6" y2="347.0" class="ev down" stroke-dasharray="4,3"/><text x="856.6" y="343.0" class="ev-lbl down">BOS</text><line x1="1128.9" y1="333.6" x2="1188.7" y2="333.6" class="ev up" stroke-dasharray="4,3"/><text x="1191.7" y="329.6" class="ev-lbl up">CHoCH</text></g>
+  <text x="10.0" y="462" class="ax" text-anchor="start">18/02</text><text x="1446.0" y="462" class="ax" text-anchor="end">10/08</text>
+</svg>
+  </div>
+  </div>
+  <div class="sub-card full">
+    <div class="analise-nota">
+      <b>Como ler:</b> o <b>semanal</b> (HTF) dá o <b>viés</b> — quem está no controle; o
+      <b>diário</b> (LTF) dá o <b>gatilho</b> da entrada. <b>BOS</b> = rompimento a favor da
+      tendência (continuação); <b>CHoCH</b> = primeiro rompimento contra (possível virada);
+      gatilho por <b>fechamento</b>, não pavio. <b>Order Block</b> = último candle contrário
+      antes do deslocamento que rompeu estrutura (compra/demanda roxo, venda/oferta marrom;
+      apagado = mitigado). <b>FVG</b> = desequilíbrio de 3 candles (azul). <b>Liquidez</b> =
+      topos/fundos iguais (amarelo; <b>✗</b> = já varrida). Regra de ouro: nunca operar contra
+      a estrutura só porque o preço tocou um Order Block — esperar confirmação. Últimos
+      <b>4 candles</b> de cada timeframe são provisórios.
+    </div>
+  </div>
+</section>
+<section class="tab metodo" id="tab-metodo" hidden>
+  <div class="sub-card full">
+    <h3>Como o placar do próximo pregão é medido</h3>
+    <p><b>O que é o "próximo pregão".</b> É a próxima sessão de negociação do Ibovespa.
+    Se você roda o dashboard <i>depois</i> do fechamento, é o dia seguinte; se roda de manhã
+    <i>antes</i> da abertura, é a sessão que vai abrir. O alvo do modelo é uma pergunta
+    simples: <b>qual a probabilidade de o Ibovespa fechar em alta nessa sessão?</b></p>
+
+    <p><b>Por que não é "adivinhar o futuro".</b> Prever a direção do Ibov <i>amanhã</i> a
+    partir dos dados de <i>hoje</i> não funciona (testamos: dá ~45% fora da amostra, pior que
+    cara-ou-coroa). O que funciona é ler os <b>sinais que ANTECEDEM a abertura</b> — o "tape"
+    global que já aconteceu antes do Ibov negociar.</p>
+
+    <h4>As 5 variáveis levadas em conta</h4>
+    <ul class="metodo-vars">
+      <li><b>Ásia</b> (Nikkei, Hang Seng, Kospi) — fecham de madrugada, antes do Ibov abrir. Primeiro humor do dia.</li>
+      <li><b>Europa</b> (DAX, Eurostoxx 50) — abrem na nossa manhã, ainda antes do Ibov.</li>
+      <li><b>S&P 500 (ontem)</b> — o fechamento de <i>ontem</i> em NY. Entra defasado 1 dia porque NY negocia junto/depois do Ibov (usar o de hoje seria "espiar o futuro").</li>
+      <li><b>EWZ (ontem)</b> — ações brasileiras negociadas em NY; prévia dolarizada, também do fechamento de ontem.</li>
+      <li><b>DXY</b> — força do dólar no mundo; dólar forte tira fluxo de emergentes.</li>
+    </ul>
+
+    <h4>Peso de cada variável no modelo</h4>
+    <p class="hint">Quanto cada fator influencia a probabilidade (|coeficiente padronizado| da regressão logística). Quanto maior, mais o modelo se apoia nele.</p>
+    <div class="barchart"><div class="bar-row">
+      <div class="bar-lbl">Europa</div>
+      <div class="bar-track"><div class="bar-fill neutro" style="width:100%"></div></div>
+      <div class="bar-val">0,51</div>
+    </div><div class="bar-row">
+      <div class="bar-lbl">DXY</div>
+      <div class="bar-track"><div class="bar-fill neutro" style="width:67%"></div></div>
+      <div class="bar-val">0,34</div>
+    </div><div class="bar-row">
+      <div class="bar-lbl">S&amp;P 500 (ont.)</div>
+      <div class="bar-track"><div class="bar-fill neutro" style="width:31%"></div></div>
+      <div class="bar-val">0,16</div>
+    </div><div class="bar-row">
+      <div class="bar-lbl">EWZ (ont.)</div>
+      <div class="bar-track"><div class="bar-fill neutro" style="width:14%"></div></div>
+      <div class="bar-val">0,07</div>
+    </div><div class="bar-row">
+      <div class="bar-lbl">Ásia</div>
+      <div class="bar-track"><div class="bar-fill neutro" style="width:1%"></div></div>
+      <div class="bar-val">0,01</div>
+    </div></div>
+
+    <h4>O modelo</h4>
+    <p>Uma <b>regressão logística</b> (o método padrão de econometria para prever direção
+    sobe/desce) treinada em <b>438 pregões</b> (~2 anos) sobre essas 5 variáveis. Ela aprende
+    o peso de cada sinal e devolve uma probabilidade de 0 a 100%. Implementada direto com
+    numpy; equivalente ao que <code>statsmodels</code>/<code>scikit-learn</code> (Python) ou
+    <code>glm</code> (R) fazem.</p>
+
+    <h4>Validação honesta</h4>
+    <p>A acurácia mostrada é <b>fora da amostra</b> (split cronológico 80/20: treina nos
+    primeiros 80% dos dias, testa nos 20% finais que o modelo nunca viu). Hoje: <b>~58%</b>,
+    contra uma base de <b>53%</b> (a frequência histórica de dias de alta). O <i>edge</i> é
+    pequeno e real — não é bola de cristal. <b>É estimativa estatística, não garantia.</b></p>
+
+    <h4>Como ler o medidor</h4>
+    <p>O semicírculo é um <b>medidor de viés</b>: <span class="z-down">esquerda = viés de
+    baixa</span>, <span class="z-flat">meio = estável</span>, <span class="z-up">direita =
+    viés de alta</span>. O marcador aponta a probabilidade estimada; 50% é moeda ao ar.</p>
+
+    <h4>Fontes de dados</h4>
+    <p class="hint">Preços e índices: yfinance (Yahoo Finance). Macro EUA: FRED. Macro Brasil
+    (Selic, CDI, IPCA): Banco Central (SGS). Tudo via API pública, dados de fechamento (EOD).</p>
+  </div>
+</section>
+<footer>46/46 ativos com dado &middot; último fechamento em torno de 2026-08-10 &middot; gerado 2026-08-10 13:28 &middot; correlações e probabilidades são co-movimento histórico (não previsão)</footer>
+<script>
+  function applyCB(on) {
+    document.documentElement.setAttribute('data-cb', on ? '1' : '0');
+    var b = document.getElementById('cbtoggle');
+    b.textContent = on ? '🎨 Modo colorido' : '♿ Modo daltônico';
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    try { localStorage.setItem('rrq-cb', on ? '1' : '0'); } catch (e) {}
+  }
+  function toggleCB() { applyCB(document.documentElement.getAttribute('data-cb') !== '1'); }
+  try { applyCB(localStorage.getItem('rrq-cb') === '1'); } catch (e) {}
+  function showTab(name) {
+    document.querySelectorAll('.tab').forEach(function (t) { t.hidden = (t.id !== 'tab-' + name); });
+    document.querySelectorAll('.tabbtn').forEach(function (b) { b.classList.toggle('active', b.dataset.tab === name); });
+  }
+  function tglLayer(name, on) {
+    var s = document.getElementById('tab-smc');
+    if (s) s.classList.toggle('hide-' + name, !on);
+  }
+</script>
+</body>
 </html>
