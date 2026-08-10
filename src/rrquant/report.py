@@ -704,7 +704,10 @@ def gerar_html(blocos: dict[str, list[Cotacao]], analise: Analise,
   .ev-dash.up {{ border-top-color:var(--up); }} .ev-dash.down {{ border-top-color:var(--down); }}
 
   /* --- Grid de blocos --- */
-  .grid {{ display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px; }}
+  .grid {{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; }}
+  @media (max-width:1280px) {{ .grid {{ grid-template-columns:repeat(3,minmax(0,1fr)); }} }}
+  @media (max-width:900px) {{ .grid {{ grid-template-columns:repeat(2,minmax(0,1fr)); }} }}
+  @media (max-width:600px) {{ .grid {{ grid-template-columns:1fr; }} }}
   .bloco {{ background:var(--card); border:1px solid var(--line); border-radius:12px;
     padding:14px 16px; border-top:4px solid var(--accent, var(--flat)); }}
   .b0 {{ --accent:var(--b0); }} .b1 {{ --accent:var(--b1); }} .b2 {{ --accent:var(--b2); }}
