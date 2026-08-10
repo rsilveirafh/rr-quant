@@ -653,8 +653,8 @@ def gerar_html(blocos: dict[str, list[Cotacao]], analise: Analise,
   .dec-ctrl {{ margin:8px 0 4px; font-size:14px; }}
   .dec-motivos {{ margin:6px 0 0; padding-left:18px; font-size:13.5px; line-height:1.5; }}
   .dec-motivos li {{ margin:4px 0; }}
-  .tf-grid {{ display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }}
-  @media (max-width:1100px) {{ .tf-grid {{ grid-template-columns:1fr; }} }}
+  /* Cada timeframe ocupa a largura completa: os elementos SMC continuam legíveis. */
+  .tf-grid {{ display:grid; grid-template-columns:1fr; gap:14px; margin-bottom:14px; }}
   .tf-card {{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; }}
   .tf-nome {{ font-weight:700; font-size:14px; letter-spacing:.3px; }}
   .smc-head {{ display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin-bottom:6px; }}
