@@ -3,8 +3,8 @@ name: Atualizar dashboard
 on:
   workflow_dispatch:
   schedule:
-    # 08:30 no horario da Bahia (UTC-3), de segunda a sexta.
-    - cron: "30 11 * * 1-5"
+    # 08:00 no horario da Bahia (UTC-3), de segunda a sexta.
+    - cron: "0 11 * * 1-5"
 
 permissions:
   contents: write
