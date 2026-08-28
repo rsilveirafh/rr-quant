@@ -1,32 +1,37 @@
 # rr-quant — contexto pro Claude Code
 
-Projeto pessoal de trade data-driven do Ricardo. Visão geral e roadmap no `README.md`.
+Dashboard quant pessoal. Visão geral, o que faz e roadmap no `README.md`.
 
 ## O que é
 
-Dashboard "quant" que reconstrói a **varredura macro diária de mercados** (inspirada
-na leitura pré-mercado da Rebecca Parrião) com dados reais de API, e por cima aplica
-métodos de análise técnica (Wyckoff, Elliott, Smart Money Concepts).
+Reconstrói uma varredura macro diária de mercados a partir de APIs públicas e, por cima
+dos números, monta uma camada de leitura: regime do dia, cadeia de correlação,
+probabilidades condicionais e um placar do Ibovespa por regressão logística.
 
 ## Convenções
 
-- **Idioma**: português (código em inglês; comentários/docs em pt-BR).
-- **Python**: 3.14. Ambiente virtual em `.venv`. Deps no `pyproject.toml`.
-- **Dados de mercado**: preferir APIs gratuitas sem tempo real (yfinance, FRED, BCB SGS,
-  brapi). Dados EOD/atrasados são suficientes.
-- **Transcrições**: extraídas com `markitdown "<url>" -o arquivo.md` (usa
-  `youtube-transcript-api`). Nunca capturar stdout — grava direto no arquivo pra não
-  corromper acentos. Ficam em `data/transcricoes/` no padrão
-  `YYYY-MM-DD_criador_titulo.md`.
+- **Idioma**: português. Código em inglês, comentários e docs em pt-BR.
+- **Python**: 3.14. Ambiente virtual em `.venv`, dependências no `pyproject.toml`.
+- **Dados de mercado**: só API pública e gratuita, sem chave paga e sem tempo real
+  (yfinance, FRED, BCB SGS, brapi). Dado de fechamento é suficiente.
+- **Sem conteúdo de terceiros no repositório.** Transcrição, texto ou material de
+  criador não entra em `data/` nem em `docs/`. O que vale é a estrutura destilada em
+  `docs/metodo-leitura-pre-mercado.md`.
+- **Nada de look-ahead.** Toda variável usada para prever o pregão seguinte precisa
+  estar defasada para o instante da decisão. Validação sempre fora da amostra, com
+  corte cronológico.
+- **Estatística é descrição, não previsão.** Todo número exibido leva a taxa-base ao
+  lado e o rótulo correspondente.
 
-## Método da Rebecca (a estrutura que vira o dashboard)
+## Estrutura do método
 
-Ver `docs/metodo-rebecca-parriao.md`. Resumo da espinha dorsal da leitura diária:
-cadeia de correlação `petróleo → inflação → juros (Selic/DI) → ativos de risco + câmbio`,
-varredura Ásia/Europa/US, commodities, moedas, renda fixa, ações-evento, e execução
-via Elliott + suporte/resistência + fluxo/absorção (SMC) + VIX>20 como alerta.
+`docs/metodo-leitura-pre-mercado.md` traz a espinha dorsal que vira modelo de dados:
+cadeia de correlação `petróleo → inflação → juros (Selic/DI) → ativos de risco e câmbio`,
+varredura Ásia, Europa e Estados Unidos, commodities, moedas, renda fixa e ações-evento.
 
 ## Estado
 
-Só documentação + transcrição de exemplo por enquanto. Sem código ainda. Próximo passo
-provável: POC do snapshot diário de mercados via yfinance.
+Frente do snapshot diário em produção: 46 ativos, camada de leitura, camada macro,
+placar do Ibovespa e histórico walk-forward. Próximos passos no `README.md`.
+
+O front-end cresceu sem plano e é a próxima reorganização prevista.

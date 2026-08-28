@@ -1,7 +1,7 @@
 """Catálogo de tickers da varredura diária.
 
 Organizado na mesma ordem em que a leitura pré-mercado passa os mercados
-(ver ../../docs/metodo-rebecca-parriao.md). Cada bloco é uma lista de
+(ver ../../docs/metodo-leitura-pre-mercado.md). Cada bloco é uma lista de
 (ticker_yfinance, nome_de_exibição). Só os ativos recorrentes entram no
 snapshot padrão; os ocasionais ficam comentados p/ ligar depois.
 """

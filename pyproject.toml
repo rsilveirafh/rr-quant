@@ -1,7 +1,7 @@
 [project]
 name = "rr-quant"
 version = "0.1.0"
-description = "Dashboard quant + varredura diaria de mercado (inspirado na leitura pre-mercado da Rebecca Parriao)"
+description = "Dashboard quant pessoal: varredura macro diaria, camada de leitura e placar do Ibovespa"
 requires-python = ">=3.12"
 dependencies = [
     "yfinance>=1.5",

@@ -1,23 +1,22 @@
-# Método — Leitura Pré-Mercado (Rebecca Parrião)
+# Método — Varredura Macro Pré-Mercado
 
-Consolidado a partir de **6 dias** de transcrição em `data/transcricoes/`
-(2026-05-20, 07-09, 07-10, 07-13, 07-14, 07-15).
-Canal: **Rebecca Parrião / Trader** (`@rebeccaparriao`) — lives diárias seg–qui às 8h15
-(BRT), foco em day trade de **dólar futuro** e **índice** (WIN/INFUT).
+Estrutura de uma varredura macro diária de mercado, consolidada a partir de comentário
+público de mercado ao longo de seis pregões (2026-05-20, 07-09, 07-10, 07-13, 07-14,
+07-15). Serve de modelo de dados para o dashboard: cada linha das tabelas abaixo vira um
+ticker ou uma série coletada.
 
-> ⚠️ **Nota de amostra**: o dia **07-10 foi atípico** (virou aula de inflação/IPCA), então
-> ela pulou a varredura de mercados. Por isso a maioria dos ativos aparece em **5/6** dias
-> (ausentes só no 07-10), não 6/6. Frequências abaixo refletem isso.
+> Nota de amostra: um dos seis dias não trouxe varredura de mercados, então a maioria dos
+> ativos aparece em 5/6 dias, não 6/6. As frequências abaixo refletem isso.
 
-A leitura tem **estrutura fixa** — é o modelo de dados do dashboard.
+A leitura tem estrutura fixa, e é isso que a torna automatizável.
 
 ## 1. Rotina real da leitura (ordem cronológica dos 6 dias)
 
-1. **News / geopolítica** — hoje é o que ABRE a live (conflito Oriente Médio, estreito de
+1. **News / geopolítica** — abre a varredura (conflito Oriente Médio, estreito de
    Ormuz, tarifas do Trump sobre navios, etc.).
 2. **Balanços / notícias corporativas** (bancos US, memórias/chips, PepsiCo…).
-3. **Calendário macro do dia** — agenda de indicadores; na 2ª-feira ela varre a semana e
-   põe "asterisco" no dia de maior volatilidade esperada.
+3. **Calendário macro do dia** — agenda de indicadores; na segunda-feira a varredura
+   cobre a semana inteira e marca o dia de maior volatilidade esperada.
 4. **Cadeia causal** (o "racional" — abaixo).
 5. **Varredura** Ásia/Oceania → Europa → EUA (fechamento de ontem + futuros).
 6. **EWZ** — ponte do fechamento US pro doméstico.
@@ -34,8 +33,7 @@ A leitura tem **estrutura fixa** — é o modelo de dados do dashboard.
 petróleo  →  inflação  →  curva de juros (Selic → DI)  →  ativos de risco + câmbio (USD/BRL)
 ```
 
-- DI = "custo do dinheiro no tempo"; norteia índice futuro, ações, câmbio. **É por onde o
-  técnico dela começa.**
+- DI = "custo do dinheiro no tempo"; norteia índice futuro, ações, câmbio. **É por onde a leitura técnica começa.**
 - Regra prática: fechamento da curva de juros favorece alta do índice; abertura favorece
   queda.
 - **DXY (euro ~50% da cesta)** usado pra separar movimento do dólar global vs. pares
@@ -132,14 +130,14 @@ petróleo  →  inflação  →  curva de juros (Selic → DI)  →  ativos de r
 | VXN (volatilidade da Nasdaq, à parte do VIX) | 2/6 | `^VXN` |
 
 ### ❌ Não cobre
-- **Cripto = 0/6.** Ela não toca em criptomoedas. Não modelar como frente de dados sem
+- **Cripto = 0/6.** Criptomoedas não aparecem. Não modelar como frente de dados sem
   evidência em amostra maior.
 - **PTAX e payroll não apareceram** em nenhum dos 6 dias — não prometer cobertura.
 
 ## 4. Conceitos / métodos técnicos (união)
 
 **Conceito-mestre**: *"de quanto custava → quanto passou a custar"* (spread aberto) +
-**inflexão** — vocabulário dela em 6/6. Três regiões de valor: **máxima** (resistência),
+**inflexão** — vocabulário recorrente, 6/6. Três regiões de valor: **máxima** (resistência),
 **mínima** (suporte), **inflexão** (preço de decisão).
 
 - **Elliott** — ondas A/B/C, 4ª/5ª onda, amplitude replicada.
@@ -188,9 +186,8 @@ Ormuz (rastreio de navios ao vivo — input qualitativo).
 
 - **Automatizável por API** (frentes 1 e 3): blocos 3, 5, 8, 9 da rotina + os indicadores
   numéricos (CPI, IPCA, DI, FedWatch, COT). Cada linha das tabelas acima = um ticker/série.
-- **Só sai da transcrição** (frente 2 — camada de tese): news/geopolítica (Ormuz, tarifas),
-  monitoramento marítimo, o viés do dia ("eu estaria vendendo aqui"), níveis específicos que
-  ela desenha, e o encadeamento narrativo.
+- **Não automatizável** (camada de tese): news e geopolítica, monitoramento marítimo, o
+  viés discricionário do dia, níveis desenhados à mão e o encadeamento narrativo.
 
 ## 7. Tickers de referência (rascunho p/ yfinance — validar na 1ª implementação)
 
