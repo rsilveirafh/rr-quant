@@ -1,132 +1,81 @@
 # rr-quant
 
-Projeto pessoal de trade **data-driven**: sair do "trade no feeling" e construir um
-processo apoiado em dados reais, indicadores e métodos de leitura de mercado.
+Dashboard quant pessoal. Monta, antes de cada pregão, um retrato objetivo do mercado a partir de dados públicos, e me diz não só o número, mas por que ele importa.
 
-## Visão
+Construí para uso próprio, porque decidir por leitura de gráfico e sensação não estava funcionando para mim. A ideia é simples: se a decisão vai ser discricionária de qualquer jeito, que pelo menos parta de um panorama montado sempre da mesma forma, sem eu escolher o que olhar no dia.
 
-Montar um **dashboard "quant"** que combine:
+Roda com dados de fechamento, sem tempo real e sem chave de API paga.
 
-- **Varredura macro diária** dos mercados mundiais (a "revisão do mundo" — inspirada
-  na leitura pré-mercado da Rebecca Parrião), reconstruída automaticamente via API,
-  sem depender do vídeo.
-- **Métodos discricionários** de análise técnica: Wyckoff, Elliott, Smart Money
-  Concepts (SMC) — codificados como indicadores/sinais quando possível.
-- **Camada de leitura/tese** extraída das transcrições dos criadores que o Ricardo
-  acompanha, sobreposta aos números.
+## O que ele faz
 
-Meta pessoal do Ricardo (registrada em `memoria-pessoal/areas/financas/trade`):
-> "Já notei que não sou um bom trader, que preciso de dados pra tomar decisões.
-> Quero fazer isso com dados reais, indicadores, modelos de economia — um dashboard
-> quant. Além de métodos baseados em Wyckoff, Elliott e Smart Money Concepts."
+**Snapshot de 46 ativos.** Índices mundiais, commodities, câmbio, juros e Treasuries, VIX e VXN, e ações brasileiras. Coleta via `yfinance` e monta um HTML por bloco com a variação do dia.
 
-## Referências (vídeos-semente)
+**Camada de leitura.** Interpreta os números em vez de só listá-los:
 
-| # | Criador | Vídeo | O que interessa |
-|---|---------|-------|-----------------|
-| 1 | (ideia do dashboard quant) | `youtu.be/ZVMTeDBmSrI` | plantou a ideia do dashboard quant |
-| 2 | **Rebecca Parrião** | `youtu.be/yNCA0h8OY-I` | revisão diária dos mercados mundiais → é a base do 1º dashboard |
-| 3 | (método de análise) | `youtu.be/hsAH6wKj1PE` | método de análise de ações/índices/criptos |
+- Regime do dia, entre risk-on, risk-off e misto, por volatilidade, amplitude das bolsas e comportamento dos ativos de proteção.
+- Cadeia de correlação, com a leitura de cada elo: petróleo para Petrobras, metais para Vale, juro global para apetite a risco, DXY para real e emergentes.
+- Probabilidades condicionais históricas sobre dois anos, do tipo "quando Ásia, Europa e S&P sobem, o Ibovespa subiu em X% dos dias", sempre com a taxa-base ao lado para o número não enganar.
+- Read-through de commodities em três estados, alta, lado e queda, porque "por que o Brent está parado" também é informação.
 
-## Frentes
+**Camada macro.** Inflação e juros por API pública sem chave: FRED para CPI, núcleo, PPI, desemprego e Fed funds, e o SGS do Banco Central para Selic, CDI, IPCA e IPCA-15. Calcula o juro real e fecha o elo entre inflação e juros da cadeia de correlação.
 
-1. **Dashboard "revisão do mundo"** — snapshot diário automático (índices mundiais,
-   commodities, câmbio, juros/Treasuries, VIX, Ibov) com a mesma estrutura da leitura
-   da Rebecca. → `docs/metodo-rebecca-parriao.md`
-2. **Catálogo de conteúdo** — pipeline `URL do YouTube → transcrição → extração
-   estruturada (tese macro, ativos, níveis, viés) → acervo pesquisável`.
-3. **Dashboard quant / métodos** — Wyckoff/Elliott/SMC como indicadores + sinais.
+**Placar do Ibovespa.** Estimativa da probabilidade de o índice fechar em alta no próximo pregão, por regressão logística sobre as variáveis que antecedem a abertura: Ásia e Europa do dia, fechamento da véspera em Nova York e DXY, todas defasadas para não usar informação que ainda não existia no momento da decisão.
 
-## Dados (APIs gratuitas, não precisa tempo real)
+A acurácia reportada é fora da amostra, com corte cronológico, e hoje fica perto de 54%. O ganho sobre a taxa-base é pequeno. O número aparece com essa ressalva no próprio dashboard.
 
-| Dado | Fonte |
-|------|-------|
-| Índices mundiais, commodities, FX, ações US, VIX | `yfinance` (Yahoo Finance) |
-| Ativos BR (Ibov, PETR4, VALE3) | `yfinance` (`.SA`, `^BVSP`) ou `brapi.dev` |
-| Macro / Treasuries (inflação, yields) | FRED (Fed) + `yfinance ^TNX` |
-| Selic / curva DI | API aberta do Banco Central (séries SGS) |
+**Histórico walk-forward.** Reconstrói dia a dia a probabilidade que o placar teria dado, cada dia previsto por um modelo treinado só com o passado. É o primeiro backtest de verdade do projeto, e existe porque a primeira versão do placar marcava 55% de acerto e caiu para 48,5% quando respeitei o relógio dos dados. Prefiro descobrir isso eu mesmo.
+
+**Acessibilidade.** Toda variação é redundante, com cor, seta e sinal, nunca só cor. Há um botão que troca para uma paleta segura para daltonismo, com Okabe-Ito, e a escolha fica salva no navegador.
+
+## Como rodar
+
+```bash
+python -m venv .venv
+.venv/Scripts/python -m pip install -e .
+.venv/Scripts/python -m rrquant            # gera output/dashboard.html
+.venv/Scripts/python -m rrquant --abrir    # gera e abre no navegador
+```
 
 ## Estrutura
 
 ```
 rr-quant/
-├── README.md                 este arquivo
-├── CLAUDE.md                 contexto pro Claude Code trabalhar aqui
-├── pyproject.toml            deps (yfinance, etc.)
-├── data/
-│   ├── transcricoes/         transcrições brutas dos vídeos (via markitdown)
-│   └── raw/                  dumps de dados de mercado
-├── docs/
-│   └── metodo-rebecca-parriao.md   método destrinchado da leitura pré-mercado
-└── src/rrquant/              código
+├── src/rrquant/
+│   ├── tickers.py     catálogo de ativos por bloco
+│   ├── collect.py     coleta e variação via yfinance
+│   ├── analyze.py     regime, correlações, probabilidades, placar
+│   ├── macro.py       FRED e BCB SGS
+│   ├── porques.py     base conceitual do "por que isso importa"
+│   ├── charts.py      gráficos SVG inline
+│   ├── report.py      montagem do HTML
+│   └── cli.py         entrada
+├── docs/              método e notas
+└── output/            dashboard gerado
 ```
 
-## Como rodar (frente 1 — snapshot diário)
+Os gráficos são SVG e CSS inline, sem dependência de biblioteca, para o dashboard abrir offline.
 
-```bash
-python -m venv .venv
-.venv/Scripts/python -m pip install -e .   # ou: pip install yfinance pandas
-.venv/Scripts/python -m rrquant            # gera output/dashboard.html
-.venv/Scripts/python -m rrquant --abrir    # gera e abre no navegador
-```
+## Fontes de dados
 
-Código em `src/rrquant/`: `tickers.py` (catálogo por bloco), `collect.py` (fetch +
-variação via yfinance), `report.py` (HTML), `cli.py` (entrada).
+| Dado | Fonte |
+|---|---|
+| Índices mundiais, commodities, FX, ações, VIX | yfinance |
+| Ativos brasileiros | yfinance com sufixo `.SA` |
+| Macro e Treasuries dos EUA | FRED |
+| Selic, CDI, IPCA | API de séries SGS do Banco Central |
 
-## Status
+## Escolhas técnicas
 
-🌱 Criado em 2026-07-16.
-- ✅ **6 dias de leitura pré-mercado transcritos** + método consolidado em
-  `docs/metodo-rebecca-parriao.md` (achados: **não cobre cripto**, técnico começa pela
-  curva de **DI**, rotina abre por news+balanços+agenda).
-- ✅ **Frente 1 — snapshot diário**: coleta 46 ativos (índices mundiais, commodities,
-  câmbio, juros, VIX/VXN, ações) via yfinance e gera dashboard HTML por bloco com variação
-  do dia. Roda com dados EOD.
-- ✅ **Camada de leitura (`analyze.py`)** — interpreta os números e mostra o *porquê*:
-  - **Regime do dia** (risk-on / risk-off / misto) por volatilidade + amplitude das bolsas
-    + ativos de proteção.
-  - **Cadeia de correlação** (petróleo→Petrobras, metais→Vale, juros global→risco,
-    DXY→real/emergentes) com leitura de cada elo.
-  - **Probabilidades condicionais históricas** (2 anos): ex. "quando a Ásia/Europa/S&P/EWZ
-    sobe, o Ibov sobe em X% dos dias" com taxa-base e lift.
-  - **Correlações-chave** (Ibov×Dow/S&P/EWZ/Nikkei/DXY, Petrobras×Brent, Vale×Cobre).
-  - **Read-through de commodities** (`analyze._commodities`): cada commodity → o setor que
-    sinaliza (Brent→Petrobras/inflação, cobre "Dr. Copper"→crescimento/Vale, ouro→refúgio,
-    prata→híbrido, platina/paládio→autos).
-  - Estatísticas rotuladas como **co-movimento histórico, não previsão**.
-- ✅ **Camada macro (`macro.py`)** — inflação e juros por API pública sem chave:
-  - **FRED** (EUA): CPI cheio/núcleo, PPI, desemprego, jobless claims, Fed funds.
-  - **BCB SGS** (Brasil): Selic meta, CDI, IPCA (12m/mês), IPCA-15.
-  - **Juro real** (Selic vs IPCA 12m) e leitura que fecha o elo inflação→juros da cadeia.
-- ✅ **"O porquê" de cada coisa (`porques.py`)** — base de conhecimento conceitual (não
-  dado inventado) explicando a **importância** de cada indicador, commodity e bloco.
-  Read-through de commodities agora em **3 estados** (alta / de lado / queda) — trata o
-  "por que o Brent está estável", não só alta/baixa.
-- ✅ **Visual vibrante + modo daltônico** — cores por bloco; toda variação é redundante
-  (cor + seta ▲▼ + sinal +/−), nunca só cor. Botão alterna paleta colorblind-safe
-  (azul/laranja + Okabe-Ito), persistida em localStorage.
-- ✅ **Placar do Ibovespa (`analyze._placar`)** — quadro de topo com a **probabilidade de o
-  Ibov fechar em alta no próximo pregão**, via **regressão logística** (numpy, sem dep
-  pesada) sobre os leads que *antecedem* a abertura: Ásia/Europa do dia + fechamento de
-  ontem em NY (S&P/EWZ, defasados p/ evitar vazamento) + DXY. Acurácia reportada é
-  **fora da amostra** (split cronológico 80/20) — hoje ~54%, edge pequeno mas real acima da
-  base. Vieses do dia por relação univariada (estável). Rotulado como estimativa, não
-  garantia. Escolhi logística direta porque no Python 3.14 `statsmodels`/`sklearn` podem
-  não ter wheel; migração futura opcional p/ diagnósticos.
-- ✅ **Front-end (`charts.py` + `report.py`)** — layout largo (até 1600px/96vw); **fileira
-  de KPIs** chamativos no topo (gauge SVG do placar, regime, VIX, USD/BRL, Brent, juro real,
-  com sparklines); probabilidades e correlações viraram **gráficos de barra** (barras com
-  marcador da base / barras divergentes). Gráficos são SVG/CSS inline (sem dep, offline) e
-  herdam o modo daltônico via variáveis CSS.
-- ✅ **Placar explorado + aba Metodologia** — gauge virou **medidor de viés** (zonas
-  baixa/estável/alta, marcador na probabilidade); card **"como o placar chegou nos X%"** com
-  as contribuições de cada variável hoje (barras divergentes); e uma **aba Metodologia**
-  explicando o que é "próximo pregão", as 5 variáveis (com a lógica de defasagem anti-vazamento),
-  o modelo, a validação fora da amostra e como ler o medidor + gráfico de pesos das variáveis.
-- ✅ **Histórico da probabilidade (walk-forward)** — `analyze._historico_prob` reconstrói,
-  dia a dia, a probabilidade que o placar teria dado (cada dia previsto por um modelo
-  treinado **só com o passado** — sem look-ahead). Gráfico de linha (`charts.hist_prob`) com
-  cada dia colorido pelo que o Ibov realmente fez (verde=subiu/vermelho=caiu) e a taxa de
-  acerto da janela. É o primeiro backtest — base pro "testar o dia seguinte".
-- ⏳ Próximo: migrar o placar p/ `statsmodels`/`sklearn` (diagnósticos); CME FedWatch;
-  variação overnight; curva DI (B3); backtest completo (retorno, não só acerto); frente 2.
+Usei regressão logística escrita direto em numpy em vez de `scikit-learn` ou `statsmodels`, porque no Python 3.14 essas bibliotecas nem sempre têm wheel disponível e eu não queria uma dependência pesada por um modelo de cinco variáveis. Migrar vale a pena quando eu quiser os diagnósticos que elas trazem prontos.
+
+## Próximos passos
+
+- Migrar o placar para `statsmodels` ou `scikit-learn`, pelos diagnósticos.
+- Curva de DI da B3 e CME FedWatch.
+- Variação overnight.
+- Backtest completo, com retorno e não só taxa de acerto.
+- Reorganizar o front-end, que cresceu sem plano.
+
+## Aviso
+
+Ferramenta pessoal de estudo. Nada aqui é recomendação de investimento. As estatísticas descrevem co-movimento histórico, não previsão, e o próprio dashboard rotula assim.
