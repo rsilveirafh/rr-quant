@@ -22,3 +22,9 @@ output/
 # OS
 .DS_Store
 Thumbs.db
+
+.vercel
+.env*
+
+# transcricoes de terceiros, nao versionar
+data/transcricoes/
