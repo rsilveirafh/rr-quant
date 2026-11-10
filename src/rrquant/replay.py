@@ -43,15 +43,16 @@ def _reamostrar(df: pd.DataFrame, minutos: int) -> pd.DataFrame:
     return out.dropna()
 
 
-def _estrutura(df: pd.DataFrame, k: int, fim: pd.Series) -> tuple[list, list]:
-    """Topos/fundos e BOS/CHoCH por fechamento, cada um com o instante em que ficou conhecido."""
-    h, l, c = (df[x].to_numpy() for x in ("maxima", "minima", "fechamento"))
+def _estrutura(df: pd.DataFrame, k: int, fim: pd.Series) -> tuple[list, list, list]:
+    """Topos/fundos, BOS/CHoCH por fechamento e zonas (OB/FVG), cada um com o instante em que
+    ficou conhecido (``c``) e, nas zonas, o instante em que deixou de valer (``f``)."""
+    o, h, l, c = (df[x].to_numpy() for x in ("abertura", "maxima", "minima", "fechamento"))
     ph, pl = sc._pivos(h, l, k)
     t = df.index
     swings = [{"t": _ts(t[i]), "p": float(h[i] if ph[i] else l[i]), "tipo": "H" if ph[i] else "L",
                "c": _ts(fim.iloc[i + k])}
               for i in range(len(df)) if (ph[i] or pl[i]) and i + k < len(df)]
-    eventos, tendencia = [], None
+    eventos, zonas, tendencia = [], [], None
     topo = fundo = None                       # (índice, preço, rompido?)
     for i in range(len(df)):
         j = i - k
@@ -69,7 +70,35 @@ def _estrutura(df: pd.DataFrame, k: int, fim: pd.Series) -> tuple[list, list]:
                 tendencia = d
                 eventos.append({"t": _ts(t[i]), "c": _ts(fim.iloc[i]), "tipo": tipo, "dir": d,
                                 "nivel": float(ref[1]), "t0": _ts(t[ref[0]])})
-    return swings, eventos
+                # order block: último candle contrário no extremo de onde saiu o impulso
+                seg = slice(ref[0], i + 1)
+                m = ref[0] + int(np.argmin(l[seg]) if sobe else np.argmax(h[seg]))
+                ob = next((j for j in range(m, max(m - 10, -1), -1)
+                           if (c[j] < o[j] if sobe else c[j] > o[j])), None)
+                if ob is not None:
+                    zonas.append(_zona("OB", d, h[ob], l[ob], ob, i, df, fim))
+    n = len(df)
+    for i in range(2, n):                     # FVG: buraco entre a barra i-2 e a barra i
+        if l[i] - h[i - 2] >= 10:
+            zonas.append(_zona("FVG", "alta", l[i], h[i - 2], i - 1, i, df, fim))
+        if l[i - 2] - h[i] >= 10:
+            zonas.append(_zona("FVG", "baixa", l[i - 2], h[i], i - 1, i, df, fim))
+    return swings, eventos, zonas
+
+
+def _zona(tipo: str, d: str, topo: float, base: float, i0: int, i_conh: int,
+          df: pd.DataFrame, fim: pd.Series) -> dict:
+    """OB some quando um fechamento atravessa a zona; FVG some quando o buraco é preenchido."""
+    l, h, c = df.minima.to_numpy(), df.maxima.to_numpy(), df.fechamento.to_numpy()
+    depois = np.arange(i_conh + 1, len(df))
+    if tipo == "OB":
+        fora = (c[depois] < base) if d == "alta" else (c[depois] > topo)
+    else:
+        fora = (l[depois] <= base) if d == "alta" else (h[depois] >= topo)
+    j = depois[fora][0] if fora.any() else None
+    return {"tipo": tipo, "dir": d, "topo": float(topo), "base": float(base),
+            "t": _ts(df.index[i0]), "c": _ts(fim.iloc[i_conh]),
+            "f": None if j is None else _ts(fim.iloc[j])}
 
 
 def _barras_json(df: pd.DataFrame) -> list:
@@ -81,8 +110,9 @@ def _estado(est: dict, lo: np.ndarray, sinal: int, nome) -> dict:
     """Estado do motor numa barra, em preços reais (a venda roda espelhada)."""
     p = lambda x: None if x is None or not np.isfinite(x) else 5 * round(float(sinal * x) / 5)  # noqa: E731
     v, o, pos, rep = est["varrida"], est["ordem"], est["posicao"], est["reprovado"]
-    s = {"liquidez": sorted(([nome(k), p(x)] for k, x in est["abaixo"].items()), key=lambda z: -sinal * z[1])
-                     + [[nome("EQL"), p(x)] for x in sorted(set(est["eql"]), reverse=True)][:3],
+    liq = [[nome(k), p(x)] for k, x in est["abaixo"].items()]
+    liq += [[nome("EQL"), p(x)] for x in sorted(set(est["eql"]), reverse=True)[:3]]
+    s = {"liquidez": sorted(liq, key=lambda z: -sinal * z[1]),             # mais próxima primeiro
          "alvos": sorted(([nome(k), p(x)] for k, x in est["acima"].items()), key=lambda z: sinal * z[1])}
     if v is not None:
         s["varrida"] = {"nivel": "+".join(nome(x) for x in v["nivel"].split("+")),
@@ -146,23 +176,23 @@ def montar(dia: pd.Timestamp, df2: pd.DataFrame, diario: pd.DataFrame, r: sc.Reg
             hist = diario[pd.to_datetime(diario.index).normalize() < dia].tail(120)
             hist.index = pd.to_datetime(hist.index).normalize()
             fim = pd.Series(hist.index + pd.Timedelta(hours=18, minutes=30), index=hist.index)
-            sw, ev = _estrutura(hist, 2, fim)
+            sw, ev, zn = _estrutura(hist, 2, fim)
         else:
             tf = _reamostrar(base, minutos) if minutos != 2 else base
             antes = tf.index.normalize() < dia
             dias_hist = tf.index.normalize()[antes].unique()[-n_dias:]
             tf = tf[tf.index.normalize() >= (dias_hist[0] if len(dias_hist) else dia)]
             fim = pd.Series(tf.index + pd.Timedelta(minutes=minutos), index=tf.index)
-            sw, ev = _estrutura(tf, 2 if minutos >= 15 else 3, fim)
+            sw, ev, zn = _estrutura(tf, 2 if minutos >= 15 else 3, fim)
             hist = tf[tf.index.normalize() < dia]
         paineis.append({"titulo": titulo, "min": minutos or 1440, "hist": _barras_json(hist),
-                        "swings": sw, "eventos": ev})
+                        "swings": sw, "eventos": ev, "zonas": zn})
 
     n = niv.loc[dia] if dia in niv.index else None
     niveis = [] if n is None else [[k, round(float(n[k]))] for k in n.index if pd.notna(n[k])]
     return {"dia": f"{dia:%Y-%m-%d}", "origem": _ts(ORIGEM), "barras": _barras_json(hoje),
             "paineis": paineis, "niveis": niveis, "estados": estados, "trades": trades,
-            "regras": {"risco_max": r.risco_max, "rr_min": r.rr_min, "fib": r.fib,
+            "regras": {"risco_max": r.risco_max, "rr_min": r.rr_min, "fib": r.fib, "folga": r.folga_stop,
                        "max_trades": r.max_trades, "max_stops": r.max_stops}}
 
 

@@ -30,7 +30,9 @@
              display: flex; justify-content: space-between; }
   .graf h2 b { color: var(--texto); }
   .graf .area { flex: 1; min-height: 0; }
-  aside { display: flex; flex-direction: column; gap: 8px; }
+  #graficos { align-content: start; }
+  aside { display: flex; flex-direction: column; gap: 8px; align-self: start; position: sticky; top: 56px;
+          max-height: calc(100vh - 64px); overflow-y: auto; }
   .caixa { background: var(--painel); border: 1px solid var(--borda); border-radius: 8px; padding: 10px 12px; }
   .caixa h3 { margin: 0 0 6px; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
   .status { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 10px; background: #222a33; }
@@ -48,6 +50,7 @@
   .legenda span { display: inline-block; margin-right: 10px; }
   @media (max-width: 1000px) {
     main { grid-template-columns: 1fr; }
+    aside { position: static; max-height: none; }
     #graficos { grid-template-columns: 1fr; }
   }
 </style>
@@ -77,6 +80,7 @@
     <div class="caixa legenda dica">
       <span style="color:var(--pd)">— dia anterior</span><span style="color:var(--pw)">— semana</span>
       <span style="color:var(--pm)">— mês</span><br>
+      <span style="color:#26a69a">━ OB de compra</span><span style="color:#ef5350">━ OB de venda</span><span>┄ FVG</span><br>
       Pontos: topos e fundos confirmados. Só aparece o que já era conhecido naquele horário.
     </div>
   </aside>
@@ -205,6 +209,19 @@ function desenhar() {
     g.info.textContent = ultimoEv ? `último: ${ultimoEv.tipo} de ${ultimoEv.dir} em ${fmt(ultimoEv.nivel)}` : "";
     for (const l of g.linhas) g.velas.removePriceLine(l);
     g.linhas = [];
+    // zonas: os 2 order blocks e o FVG ainda válidos mais próximos do preço, de cada lado
+    const ativas = (g.p.zonas || []).filter(z => z.c <= agora && (z.f == null || z.f > agora));
+    for (const d of ["alta", "baixa"]) for (const [tipo, max] of [["OB", 2], ["FVG", 1]]) {
+      const zs = ativas.filter(z => z.dir === d && z.tipo === tipo)
+        .sort((a, b) => Math.abs((a.topo + a.base) / 2 - ultimo) - Math.abs((b.topo + b.base) / 2 - ultimo)).slice(0, max);
+      for (const z of zs) {
+        const ob = tipo === "OB";
+        const cz = ob ? (d === "alta" ? "rgba(38,166,154,.8)" : "rgba(239,83,80,.8)") : "rgba(160,170,185,.55)";
+        for (const [preco, titulo] of [[z.topo, `${tipo} ${d === "alta" ? "▲" : "▼"}`], [z.base, ""]])
+          g.linhas.push(g.velas.createPriceLine({ price: preco, color: cz, lineWidth: ob ? 2 : 1, lineStyle: ob ? 0 : 1,
+                                                  axisLabelVisible: false, title: titulo }));
+      }
+    }
     if (g.p.min <= 5) {
       for (const lado of ["compra", "venda"]) {
         const e = estadoEm(lado, t0);
@@ -237,6 +254,35 @@ function desenhar() {
 function item(estado, texto) {
   const m = { ok: ["ok", "✓"], nao: ["nao", "✗"], esp: ["esp", "○"] }[estado];
   return `<li><span class="m ${m[0]}">${m[1]}</span><span>${texto}</span></li>`;
+}
+
+// plano de antemão: para cada liquidez ainda não varrida, onde a entrada nasceria
+function plano(lado, e, agora) {
+  const R = D.regras, sobe = lado === "compra", virg = x => x.toFixed(1).replace(".", ",");
+  const sw = D.paineis[5].swings.filter(s => s.c <= agora && s.tipo === (sobe ? "H" : "L"));
+  if (!sw.length) return "";
+  const ref = sw[sw.length - 1].p;
+  const linhas = [];
+  for (const [nome, L] of (e.liquidez || []).slice(0, 3)) {
+    if (sobe ? L >= ref : L <= ref) continue;
+    linhas.push(`<li><span class="m esp">•</span><span>Se varrer <b>${nome} ${fmt(L)}</b> e fechar `
+      + `${sobe ? "acima" : "abaixo"} de ${fmt(ref)}: ${veredito(lado, e, ref, L)}</span></li>`);
+  }
+  return linhas.length ? `<div class="frase"><b>Plano de antemão</b><ol>${linhas.join("")}</ol>`
+    + `<span class="esp">Conta feita com o ${sobe ? "topo" : "fundo"} de hoje; se ele mudar até lá, a entrada muda junto.</span></div>` : "";
+}
+function veredito(lado, e, ref, extremo) {
+  const R = D.regras, sobe = lado === "compra", virg = x => x.toFixed(1).replace(".", ",");
+  const ent = sobe ? ref - R.fib * (ref - extremo) : ref + R.fib * (extremo - ref);
+  const stop = sobe ? extremo - R.folga : extremo + R.folga;
+  const risco = Math.abs(ent - stop);
+  const alvo = (e.alvos || []).find(([n, x]) => sobe ? x > ref : x < ref);
+  const rr = alvo ? Math.abs(alvo[1] - ent) / risco : null;
+  const base = `entrada ~${fmt(5 * Math.round(ent / 5))}, stop ${fmt(stop)} (${fmt(risco)} pts)`;
+  if (risco > R.risco_max) return `${base} → <span class="nao">não cabe no R de ${R.risco_max}</span>`;
+  if (!alvo) return `${base} → <span class="nao">sem liquidez para alvo</span>`;
+  if (rr < R.rr_min) return `${base}, alvo ${alvo[0]} ${fmt(alvo[1])} → <span class="nao">só ${virg(rr)}R</span>`;
+  return `${base}, alvo ${alvo[0]} ${fmt(alvo[1])} → <span class="ok">${virg(rr)}R, cabe</span>`;
 }
 
 function painelLado(lado, t, preco) {
@@ -284,7 +330,8 @@ function painelLado(lado, t, preco) {
                      `Recuo até ${(R.fib * 100).toFixed(1).replace(".", ",")}%`, `Risco até ${R.risco_max} pts`, `Alvo ≥ ${R.rr_min}R na próxima liquidez`])
       itens.push(item("esp", k));
     const alvos = (e.alvos || []).slice(0, 2).map(([n, x]) => `${n} ${fmt(x)}`).join(" · ");
-    frase = v ? (v.ref != null ? `Varrida feita. Se o 2 min fechar ${sobe ? "acima" : "abaixo"} de ${fmt(v.ref)} com força e volume, arma a ordem.`
+    frase = v ? (v.ref != null ? `Varrida feita. Se o 2 min fechar ${sobe ? "acima" : "abaixo"} de ${fmt(v.ref)} com força e volume, arma a ordem: `
+                                 + veredito(lado, e, v.ref, v.fundo) + `. <span class="esp">Se o impulso passar de ${fmt(v.ref)}, a entrada ${sobe ? "sobe" : "desce"} junto.</span>`
                                : `Varrida feita. Esperando um ${sobe ? "topo" : "fundo"} confirmado no 2 min para servir de referência do CHoCH.`)
               : `Sem varrida, sem entrada.` + (alvos ? ` Liquidez ${sobe ? "acima" : "abaixo"} (alvos possíveis): ${alvos}.` : "");
   }
@@ -296,7 +343,8 @@ function painelLado(lado, t, preco) {
   if (seguindo || !D.aovivo) ultimoStatus[lado] = status;
   document.getElementById("p-" + lado).innerHTML =
     `<h3>${sobe ? "Compra" : "Venda"} <span class="status ${cls}">${status}</span></h3><ol>${itens.join("")}</ol>`
-    + (frase ? `<div class="frase">${frase}</div>` : "");
+    + (frase ? `<div class="frase">${frase}</div>` : "")
+    + (!v && !o && !pos ? plano(lado, e, t + 120) : "");
 }
 
 function painelDia(agora) {
