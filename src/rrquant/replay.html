@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Replay WIN</title>
+<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+  :root {
+    --bg: #0f1216; --painel: #161b22; --borda: #262d36; --texto: #d6dde6; --fraco: #8592a3;
+    --compra: #26a69a; --venda: #ef5350; --aviso: #e0a526; --pd: #e0a526; --pw: #5b9bd5; --pm: #b07fe0;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--texto);
+         font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 8px 16px;
+           border-bottom: 1px solid var(--borda); background: var(--painel); position: sticky; top: 0; z-index: 2; }
+  header h1 { font-size: 15px; margin: 0; font-weight: 600; }
+  #relogio { font-variant-numeric: tabular-nums; font-size: 15px; font-weight: 600; min-width: 48px; }
+  button, select { background: #222a33; color: var(--texto); border: 1px solid var(--borda); border-radius: 6px;
+                   padding: 4px 10px; font: inherit; cursor: pointer; }
+  button:hover { border-color: var(--fraco); }
+  input[type=range] { flex: 1 1 200px; min-width: 120px; }
+  .dica { color: var(--fraco); font-size: 12px; }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 8px; padding: 8px; }
+  #graficos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .graf { background: var(--painel); border: 1px solid var(--borda); border-radius: 8px; overflow: hidden;
+          display: flex; flex-direction: column; height: calc((100vh - 90px) / 3); min-height: 220px; }
+  .graf h2 { margin: 0; padding: 4px 10px; font-size: 12px; font-weight: 600; color: var(--fraco);
+             display: flex; justify-content: space-between; }
+  .graf h2 b { color: var(--texto); }
+  .graf .area { flex: 1; min-height: 0; }
+  aside { display: flex; flex-direction: column; gap: 8px; }
+  .caixa { background: var(--painel); border: 1px solid var(--borda); border-radius: 8px; padding: 10px 12px; }
+  .caixa h3 { margin: 0 0 6px; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
+  .status { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 10px; background: #222a33; }
+  .status.armada { background: var(--aviso); color: #111; }
+  .status.posicao { background: var(--compra); color: #111; }
+  .venda .status.posicao { background: var(--venda); }
+  ol { margin: 0; padding: 0; list-style: none; }
+  li { display: grid; grid-template-columns: 18px 1fr; gap: 4px; padding: 2px 0; }
+  li .m { text-align: center; }
+  .ok { color: var(--compra); } .nao { color: var(--venda); } .esp { color: var(--fraco); }
+  .frase { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--borda); }
+  .compra h3 { color: var(--compra); } .venda h3 { color: var(--venda); }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  td { padding: 2px 4px; border-bottom: 1px solid var(--borda); }
+  .legenda span { display: inline-block; margin-right: 10px; }
+  @media (max-width: 1000px) {
+    main { grid-template-columns: 1fr; }
+    #graficos { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="titulo">Replay WIN</h1>
+  <span id="relogio">--:--</span>
+  <button id="b-inicio" title="Início (Home)">⏮</button>
+  <button id="b-volta" title="Barra anterior (←)">◀</button>
+  <button id="b-play" title="Play/pausa (espaço)">▶ play</button>
+  <button id="b-avanca" title="Próxima barra (→)">▶</button>
+  <button id="b-evento" title="Próximo evento do setup (E)">próximo evento ⏭</button>
+  <select id="vel" title="Velocidade">
+    <option value="800">devagar</option><option value="350" selected>normal</option>
+    <option value="120">rápido</option><option value="30">muito rápido</option>
+  </select>
+  <input id="slider" type="range" min="0" value="0">
+  <span class="dica">← → barra · espaço play · E próximo evento</span>
+</header>
+<main>
+  <section id="graficos"></section>
+  <aside>
+    <div class="caixa compra" id="p-compra"></div>
+    <div class="caixa venda" id="p-venda"></div>
+    <div class="caixa" id="p-dia"></div>
+    <div class="caixa legenda dica">
+      <span style="color:var(--pd)">— dia anterior</span><span style="color:var(--pw)">— semana</span>
+      <span style="color:var(--pm)">— mês</span><br>
+      Pontos: topos e fundos confirmados. Só aparece o que já era conhecido naquele horário.
+    </div>
+  </aside>
+</main>
+<script>
+const D = /*DADOS*/null;
+const N = D.barras.length;
+const fmt = x => x == null ? "—" : Math.round(x).toLocaleString("pt-BR");
+const hora = t => new Date(t * 1000).toISOString().slice(11, 16);
+const DIA_TS = Date.parse(D.dia + "T00:00:00Z") / 1000;
+const cor = { PD: "#e0a526", PW: "#5b9bd5", PM: "#b07fe0" };
+let passo = 0, tocando = null;
+
+// ---------------------------------------------------------------- gráficos
+const graficos = D.paineis.map(p => {
+  const caixa = document.createElement("div");
+  caixa.className = "graf";
+  caixa.innerHTML = `<h2><b>${p.titulo}</b><span class="info"></span></h2><div class="area"></div>`;
+  document.getElementById("graficos").appendChild(caixa);
+  const chart = LightweightCharts.createChart(caixa.querySelector(".area"), {
+    autoSize: true,
+    layout: { background: { color: "#161b22" }, textColor: "#8592a3", fontSize: 11 },
+    grid: { vertLines: { color: "#1d232b" }, horzLines: { color: "#1d232b" } },
+    timeScale: { timeVisible: p.min < 1440, secondsVisible: false, borderColor: "#262d36", rightOffset: 4 },
+    rightPriceScale: { borderColor: "#262d36" },
+    crosshair: { mode: 0 },
+  });
+  const velas = chart.addCandlestickSeries({
+    upColor: "#26a69a", downColor: "#ef5350", wickUpColor: "#26a69a", wickDownColor: "#ef5350",
+    borderVisible: false, priceFormat: { type: "price", precision: 0, minMove: 5 },
+  });
+  const vol = chart.addHistogramSeries({ priceScaleId: "vol", priceFormat: { type: "volume" }, color: "#2a3440" });
+  chart.priceScale("vol").applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
+  for (const [nome, preco] of D.niveis) {
+    velas.createPriceLine({ price: preco, color: cor[nome.slice(0, 2)], lineWidth: 1, lineStyle: 2,
+                            axisLabelVisible: true, title: nome });
+  }
+  return { p, chart, velas, vol, linhas: [], info: caixa.querySelector(".info"), primeiro: true };
+});
+
+function balde(t, min) {
+  if (min >= 1440) return DIA_TS;
+  const s = min * 60;
+  return D.origem + Math.floor((t - D.origem) / s) * s;
+}
+
+function barrasAte(p, s) {
+  const out = p.hist.map(b => ({ time: b[0], open: b[1], high: b[2], low: b[3], close: b[4], v: b[5] }));
+  let atual = null;
+  for (let i = 0; i <= s; i++) {
+    const [t, o, h, l, c, v] = D.barras[i];
+    const b = balde(t, p.min);
+    if (!atual || atual.time !== b) {
+      atual = { time: b, open: o, high: h, low: l, close: c, v };
+      out.push(atual);
+    } else {
+      atual.high = Math.max(atual.high, h); atual.low = Math.min(atual.low, l);
+      atual.close = c; atual.v += v;
+    }
+  }
+  return out;
+}
+
+// marcadores do setup (2 min), calculados uma vez para o dia todo
+const marcasSetup = [];
+for (const lado of ["compra", "venda"]) {
+  let ant = {};
+  const c = lado === "compra" ? "#26a69a" : "#ef5350";
+  for (const [t] of D.barras) {
+    const e = D.estados[lado][t] || {};
+    if (e.varrida && (!ant.varrida || ant.varrida.nivel !== e.varrida.nivel || ant.varrida.fundo !== e.varrida.fundo) && !ant.varrida)
+      marcasSetup.push({ time: t, position: lado === "compra" ? "belowBar" : "aboveBar", color: "#e0a526",
+                         shape: "circle", text: "varreu " + e.varrida.nivel });
+    if (e.ordem && !ant.ordem)
+      marcasSetup.push({ time: t, position: lado === "compra" ? "belowBar" : "aboveBar", color: c,
+                         shape: "square", text: "CHoCH ✓" });
+    if (e.reprovado && (!ant.reprovado || ant.reprovado.t !== e.reprovado.t))
+      marcasSetup.push({ time: e.reprovado.t, position: lado === "compra" ? "belowBar" : "aboveBar",
+                         color: "#8592a3", shape: "square", text: "CHoCH ✗" });
+    ant = e;
+  }
+}
+for (const tr of D.trades) {
+  const c = tr.lado === "compra" ? "#26a69a" : "#ef5350";
+  marcasSetup.push({ time: tr.t, position: tr.lado === "compra" ? "belowBar" : "aboveBar", color: c,
+                     shape: tr.lado === "compra" ? "arrowUp" : "arrowDown", text: tr.lado + " " + fmt(tr.entrada) });
+  marcasSetup.push({ time: tr.ts, position: "inBar", color: tr.R > 0 ? "#26a69a" : "#ef5350",
+                     shape: "circle", text: (tr.R > 0 ? "+" : "") + tr.R.toFixed(1) + "R", saida: true });
+}
+
+function desenhar() {
+  const [t0] = D.barras[passo];
+  const agora = t0 + 120;
+  document.getElementById("relogio").textContent = hora(agora);
+  document.getElementById("slider").value = passo;
+  const ultimo = D.barras[passo][4];
+
+  for (const g of graficos) {
+    const barras = barrasAte(g.p, passo);
+    g.velas.setData(barras);
+    g.vol.setData(barras.map(b => ({ time: b.time, value: b.v, color: b.close >= b.open ? "#1f3b3a" : "#3d2326" })));
+    const tempos = new Set(barras.map(b => b.time));
+    let m = [];
+    for (const s of g.p.swings) if (s.c <= agora && tempos.has(s.t))
+      m.push({ time: s.t, position: s.tipo === "H" ? "aboveBar" : "belowBar", color: "#55606e", shape: "circle", size: 0.4 });
+    let ultimoEv = null;
+    for (const e of g.p.eventos) if (e.c <= agora && tempos.has(e.t)) {
+      m.push({ time: e.t, position: e.dir === "alta" ? "aboveBar" : "belowBar",
+               color: e.tipo === "CHoCH" ? "#e0a526" : (e.dir === "alta" ? "#26a69a" : "#ef5350"),
+               shape: e.dir === "alta" ? "arrowUp" : "arrowDown", text: e.tipo });
+      ultimoEv = e;
+    }
+    g.info.textContent = ultimoEv ? `último: ${ultimoEv.tipo} de ${ultimoEv.dir} em ${fmt(ultimoEv.nivel)}` : "";
+    for (const l of g.linhas) g.velas.removePriceLine(l);
+    g.linhas = [];
+    if (g.p.min <= 5) {
+      for (const lado of ["compra", "venda"]) {
+        const e = D.estados[lado][t0] || {};
+        const alvo = e.posicao || (e.ordem && e.ordem.ativa ? e.ordem : null);
+        if (!alvo) continue;
+        for (const [k, c, nome] of [["entrada", "#d6dde6", "entrada"], ["stop", "#ef5350", "stop"], ["alvo", "#26a69a", "alvo"]])
+          if (alvo[k] != null) g.linhas.push(g.velas.createPriceLine({ price: alvo[k], color: c, lineWidth: 1,
+                                                 lineStyle: 0, axisLabelVisible: true, title: nome }));
+      }
+    }
+    if (g.p.min === 2) m = m.concat(marcasSetup.filter(x => (x.saida ? x.time + 120 : x.time + 120) <= agora));
+    m.sort((a, b) => a.time - b.time);
+    g.velas.setMarkers(m);
+    if (g.primeiro) {
+      const n = barras.length;
+      g.chart.timeScale().setVisibleLogicalRange({ from: n - (g.p.min === 2 ? 140 : 70), to: n + 4 });
+      g.primeiro = false;
+    } else if (tocando) {
+      g.chart.timeScale().scrollToRealTime();
+    }
+  }
+  painelLado("compra", t0, ultimo);
+  painelLado("venda", t0, ultimo);
+  painelDia(agora);
+}
+
+// ---------------------------------------------------------------- painéis de texto
+function item(estado, texto) {
+  const m = { ok: ["ok", "✓"], nao: ["nao", "✗"], esp: ["esp", "○"] }[estado];
+  return `<li><span class="m ${m[0]}">${m[1]}</span><span>${texto}</span></li>`;
+}
+
+function painelLado(lado, t, preco) {
+  const e = D.estados[lado][t] || {};
+  const R = D.regras, sobe = lado === "compra";
+  const dist = x => `${fmt(Math.abs(preco - x))} pts`;
+  let status = "aguardando varrida", cls = "", frase = "";
+  const o = e.ordem, pos = e.posicao, v = e.varrida;
+  const itens = [];
+  if (pos) {
+    status = "posicionado"; cls = "posicao";
+    const r = ((sobe ? preco - pos.entrada : pos.entrada - preco) / pos.risco);
+    frase = `${sobe ? "Comprado" : "Vendido"} em ${fmt(pos.entrada)} às ${hora(pos.t)}. Stop ${fmt(pos.stop)}, `
+          + `alvo ${fmt(pos.alvo)}. Agora: ${r >= 0 ? "+" : ""}${r.toFixed(2).replace(".", ",")}R.`;
+  } else if (o) {
+    if (o.ativa) { status = "ordem armada"; cls = "armada"; }
+    else status = "ordem não armada";
+  } else if (v) status = "esperando CHoCH";
+
+  const q = o || pos;                                   // o que justificou a ordem/posição
+  const nivel = (q && q.nivel) || (v && v.nivel);
+  if (nivel) itens.push(item("ok", `Varreu <b>${nivel}</b>` + (v ? ` (extremo ${fmt(v.fundo)})` : "")));
+  else {
+    const lista = (e.liquidez || []).slice(0, 3).map(([n, x]) => `${n} ${fmt(x)} <span class="esp">(${dist(x)})</span>`);
+    itens.push(item("esp", `Varrer liquidez ${sobe ? "abaixo" : "acima"}: ${lista.join(" · ") || "nenhuma restante no dia"}`));
+  }
+  if (q) itens.push(item("ok", "CHoCH no 2 min"));
+  else if (v && v.ref != null) itens.push(item("esp", `CHoCH: fechar ${sobe ? "acima" : "abaixo"} de <b>${fmt(v.ref)}</b>`));
+  else itens.push(item("esp", "CHoCH no 2 min"));
+  if (q) {
+    itens.push(item(q.pernas >= 5 || q.forca ? "ok" : "nao", `Impulso: ${q.pernas} pernas${q.forca ? " + barra de força" : ""}`));
+    itens.push(item(q.vol > 1 ? "ok" : "nao", `Volume na quebra: ${q.vol.toFixed(2).replace(".", ",")}× o da perna anterior`));
+    itens.push(item("ok", `Entrada no recuo de ${(R.fib * 100).toFixed(1).replace(".", ",")}%: <b>${fmt(q.entrada)}</b>`));
+    itens.push(item(q.risco <= R.risco_max ? "ok" : "nao", `Risco ${fmt(q.risco)} pts (máx. ${R.risco_max})`));
+    itens.push(item(q.rr != null && q.rr >= R.rr_min ? "ok" : "nao",
+      q.alvo != null ? `Alvo ${fmt(q.alvo)}: ${q.rr.toFixed(1).replace(".", ",")}R (mín. ${R.rr_min})` : "Sem liquidez à frente para alvo"));
+  }
+  if (pos) {
+  } else if (o) {
+    if (o.ativa) frase = `Ordem limitada de ${lado} em <b>${fmt(o.entrada)}</b>, stop ${fmt(o.stop)}, alvo ${fmt(o.alvo)}. `
+                       + `Falta ${dist(o.entrada)} para executar.`;
+    else frase = "O impulso ainda não deu uma entrada que caiba nas regras. A ordem é recalculada a cada barra enquanto o preço anda.";
+  } else if (!pos) {
+    for (const k of ["Impulso de 5 pernas ou barra de força", "Volume subindo na quebra",
+                     `Recuo até ${(R.fib * 100).toFixed(1).replace(".", ",")}%`, `Risco até ${R.risco_max} pts`, `Alvo ≥ ${R.rr_min}R na próxima liquidez`])
+      itens.push(item("esp", k));
+    const alvos = (e.alvos || []).slice(0, 2).map(([n, x]) => `${n} ${fmt(x)}`).join(" · ");
+    frase = v ? (v.ref != null ? `Varrida feita. Se o 2 min fechar ${sobe ? "acima" : "abaixo"} de ${fmt(v.ref)} com força e volume, arma a ordem.`
+                               : `Varrida feita. Esperando um ${sobe ? "topo" : "fundo"} confirmado no 2 min para servir de referência do CHoCH.`)
+              : `Sem varrida, sem entrada.` + (alvos ? ` Liquidez ${sobe ? "acima" : "abaixo"} (alvos possíveis): ${alvos}.` : "");
+  }
+  if (e.reprovado && t - e.reprovado.t <= 1800 && !o && !pos)
+    frase += ` <span class="esp">CHoCH das ${hora(e.reprovado.t)} reprovado: ${e.reprovado.pernas} pernas`
+           + `${e.reprovado.forca ? " (com barra de força)" : ""}, volume ${e.reprovado.vol_ratio.toFixed(2).replace(".", ",")}×.</span>`;
+  document.getElementById("p-" + lado).innerHTML =
+    `<h3>${sobe ? "Compra" : "Venda"} <span class="status ${cls}">${status}</span></h3><ol>${itens.join("")}</ol>`
+    + (frase ? `<div class="frase">${frase}</div>` : "");
+}
+
+function painelDia(agora) {
+  const feitos = D.trades.filter(x => x.t + 120 <= agora);
+  const fechados = feitos.filter(x => x.ts + 120 <= agora);
+  const stops = fechados.filter(x => x.R < 0).length;
+  const total = fechados.reduce((s, x) => s + x.R, 0);
+  const R = D.regras;
+  const fim = feitos.length >= R.max_trades || stops >= R.max_stops;
+  let linhas = feitos.map(x => {
+    const fechou = x.ts + 120 <= agora;
+    return `<tr><td>${hora(x.t)}</td><td style="color:${x.lado === "compra" ? "var(--compra)" : "var(--venda)"}">${x.lado}</td>`
+         + `<td>${fmt(x.entrada)}</td><td>${fechou ? (x.R > 0 ? "+" : "") + x.R.toFixed(2) + "R" : "aberto"}</td></tr>`;
+  }).join("");
+  document.getElementById("p-dia").innerHTML =
+    `<h3>Dia ${D.dia.split("-").reverse().join("/")} <span class="status ${fim ? "armada" : ""}">${fim ? "dia encerrado" : "operando"}</span></h3>`
+    + `<div>${feitos.length}/${R.max_trades} trades · ${stops}/${R.max_stops} stops · resultado ${total >= 0 ? "+" : ""}${total.toFixed(2)}R</div>`
+    + (linhas ? `<table>${linhas}</table>` : `<div class="dica">Nenhum trade até agora.</div>`)
+    + `<div class="dica" style="margin-top:6px">Níveis: ${D.niveis.map(([n, x]) => `${n} ${fmt(x)}`).join(" · ")}</div>`;
+}
+
+// ---------------------------------------------------------------- controles
+const assinatura = i => {
+  const t = D.barras[i][0];
+  const sig = ["compra", "venda"].map(l => {
+    const e = D.estados[l][t] || {};
+    return [!!e.varrida && e.varrida.nivel, !!e.ordem && e.ordem.ativa, !!e.ordem, !!e.posicao].join();
+  }).join("|");
+  return sig + "|" + D.trades.filter(x => x.ts <= t).length;
+};
+function ir(i) { passo = Math.max(0, Math.min(N - 1, i)); desenhar(); }
+function parar() { clearInterval(tocando); tocando = null; document.getElementById("b-play").textContent = "▶ play"; }
+function tocar() {
+  if (tocando) return parar();
+  document.getElementById("b-play").textContent = "⏸ pausa";
+  tocando = setInterval(() => { if (passo >= N - 1) return parar(); ir(passo + 1); }, +document.getElementById("vel").value);
+}
+function proximoEvento() {
+  const a = assinatura(passo);
+  for (let i = passo + 1; i < N; i++) if (assinatura(i) !== a) return ir(i);
+  ir(N - 1);
+}
+document.getElementById("slider").max = N - 1;
+document.getElementById("slider").oninput = e => ir(+e.target.value);
+document.getElementById("b-inicio").onclick = () => ir(0);
+document.getElementById("b-volta").onclick = () => ir(passo - 1);
+document.getElementById("b-avanca").onclick = () => ir(passo + 1);
+document.getElementById("b-play").onclick = tocar;
+document.getElementById("b-evento").onclick = proximoEvento;
+document.getElementById("vel").onchange = () => { if (tocando) { parar(); tocar(); } };
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight") ir(passo + 1);
+  else if (e.key === "ArrowLeft") ir(passo - 1);
+  else if (e.key === " ") { e.preventDefault(); tocar(); }
+  else if (e.key.toLowerCase() === "e") proximoEvento();
+  else if (e.key === "Home") ir(0);
+});
+document.getElementById("titulo").textContent = `Replay WIN · ${D.dia.split("-").reverse().join("/")}`;
+document.title = `Replay WIN ${D.dia}`;
+const h0 = location.hash.slice(1);                      // abre num horário: arquivo.html#10:30
+ir(h0 ? Math.max(0, D.barras.findIndex(b => hora(b[0] + 120) >= h0)) : 0);
+</script>
+</body>
+</html>
