@@ -82,8 +82,16 @@
   </aside>
 </main>
 <script>
-const D = /*DADOS*/null;
-const N = D.barras.length;
+let D = /*DADOS*/null;
+let N = D.barras.length;
+let seguindo = false;                                  // ao vivo: acompanha a última barra
+const estadoEm = (lado, t) => {
+  const e = D.estados[lado];
+  if (e[t]) return e[t];
+  let melhor = null;
+  for (const k in e) if (+k <= t && (melhor === null || +k > melhor)) melhor = +k;
+  return melhor === null ? {} : e[melhor];
+};
 const fmt = x => x == null ? "—" : Math.round(x).toLocaleString("pt-BR");
 const hora = t => new Date(t * 1000).toISOString().slice(11, 16);
 const DIA_TS = Date.parse(D.dia + "T00:00:00Z") / 1000;
@@ -114,7 +122,8 @@ const graficos = D.paineis.map(p => {
     velas.createPriceLine({ price: preco, color: cor[nome.slice(0, 2)], lineWidth: 1, lineStyle: 2,
                             axisLabelVisible: true, title: nome });
   }
-  return { p, chart, velas, vol, linhas: [], info: caixa.querySelector(".info"), primeiro: true };
+  return { p, chart, velas, vol, linhas: [], info: caixa.querySelector(".info"), primeiro: true,
+           area: caixa.querySelector(".area") };
 });
 
 function balde(t, min) {
@@ -141,7 +150,9 @@ function barrasAte(p, s) {
 }
 
 // marcadores do setup (2 min), calculados uma vez para o dia todo
-const marcasSetup = [];
+let marcasSetup = [];
+function calcularMarcas() {
+marcasSetup = [];
 for (const lado of ["compra", "venda"]) {
   let ant = {};
   const c = lado === "compra" ? "#26a69a" : "#ef5350";
@@ -166,6 +177,8 @@ for (const tr of D.trades) {
   marcasSetup.push({ time: tr.ts, position: "inBar", color: tr.R > 0 ? "#26a69a" : "#ef5350",
                      shape: "circle", text: (tr.R > 0 ? "+" : "") + tr.R.toFixed(1) + "R", saida: true });
 }
+}
+calcularMarcas();
 
 function desenhar() {
   const [t0] = D.barras[passo];
@@ -194,7 +207,7 @@ function desenhar() {
     g.linhas = [];
     if (g.p.min <= 5) {
       for (const lado of ["compra", "venda"]) {
-        const e = D.estados[lado][t0] || {};
+        const e = estadoEm(lado, t0);
         const alvo = e.posicao || (e.ordem && e.ordem.ativa ? e.ordem : null);
         if (!alvo) continue;
         for (const [k, c, nome] of [["entrada", "#d6dde6", "entrada"], ["stop", "#ef5350", "stop"], ["alvo", "#26a69a", "alvo"]])
@@ -205,12 +218,14 @@ function desenhar() {
     if (g.p.min === 2) m = m.concat(marcasSetup.filter(x => (x.saida ? x.time + 120 : x.time + 120) <= agora));
     m.sort((a, b) => a.time - b.time);
     g.velas.setMarkers(m);
-    if (g.primeiro) {
+    if (g.primeiro && g.area.clientWidth > 0) {          // só depois de o gráfico ter largura
       const n = barras.length;
       g.chart.timeScale().setVisibleLogicalRange({ from: n - (g.p.min === 2 ? 140 : 70), to: n + 4 });
       g.primeiro = false;
-    } else if (tocando) {
-      g.chart.timeScale().scrollToRealTime();
+    } else if (!g.primeiro && (tocando || seguindo)) {    // mantém a largura e encosta na última barra
+      const r = g.chart.timeScale().getVisibleLogicalRange();
+      const w = r ? r.to - r.from : 70, n = barras.length;
+      g.chart.timeScale().setVisibleLogicalRange({ from: n + 4 - w, to: n + 4 });
     }
   }
   painelLado("compra", t0, ultimo);
@@ -225,7 +240,7 @@ function item(estado, texto) {
 }
 
 function painelLado(lado, t, preco) {
-  const e = D.estados[lado][t] || {};
+  const e = estadoEm(lado, t);
   const R = D.regras, sobe = lado === "compra";
   const dist = x => `${fmt(Math.abs(preco - x))} pts`;
   let status = "aguardando varrida", cls = "", frase = "";
@@ -276,6 +291,9 @@ function painelLado(lado, t, preco) {
   if (e.reprovado && t - e.reprovado.t <= 1800 && !o && !pos)
     frase += ` <span class="esp">CHoCH das ${hora(e.reprovado.t)} reprovado: ${e.reprovado.pernas} pernas`
            + `${e.reprovado.forca ? " (com barra de força)" : ""}, volume ${e.reprovado.vol_ratio.toFixed(2).replace(".", ",")}×.</span>`;
+  if (D.aovivo && seguindo && ultimoStatus[lado] && ultimoStatus[lado] !== status &&
+      (cls === "armada" || cls === "posicao")) alertar(`${lado}: ${status}`);
+  if (seguindo || !D.aovivo) ultimoStatus[lado] = status;
   document.getElementById("p-" + lado).innerHTML =
     `<h3>${sobe ? "Compra" : "Venda"} <span class="status ${cls}">${status}</span></h3><ol>${itens.join("")}</ol>`
     + (frase ? `<div class="frase">${frase}</div>` : "");
@@ -309,7 +327,7 @@ const assinatura = i => {
   }).join("|");
   return sig + "|" + D.trades.filter(x => x.ts <= t).length;
 };
-function ir(i) { passo = Math.max(0, Math.min(N - 1, i)); desenhar(); }
+function ir(i) { passo = Math.max(0, Math.min(N - 1, i)); if (D.aovivo) seguindo = passo === N - 1; desenhar(); }
 function parar() { clearInterval(tocando); tocando = null; document.getElementById("b-play").textContent = "▶ play"; }
 function tocar() {
   if (tocando) return parar();
@@ -338,8 +356,58 @@ document.addEventListener("keydown", e => {
 });
 document.getElementById("titulo").textContent = `Replay WIN · ${D.dia.split("-").reverse().join("/")}`;
 document.title = `Replay WIN ${D.dia}`;
+// ---------------------------------------------------------------- ao vivo
+const ultimoStatus = {};
+let audio = null;
+function alertar(texto) {
+  document.title = "● " + texto;
+  if (!audio) return;
+  for (const [f, t0] of [[880, 0], [1320, 0.18]]) {
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.frequency.value = f; o.connect(g); g.connect(audio.destination);
+    g.gain.setValueAtTime(0.15, audio.currentTime + t0);
+    g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + t0 + 0.25);
+    o.start(audio.currentTime + t0); o.stop(audio.currentTime + t0 + 0.3);
+  }
+}
+if (D.aovivo) {
+  let fechadas = D.barras.slice(), versao = null;
+  const som = document.createElement("button");
+  som.textContent = "🔔 ativar som";
+  som.onclick = () => { audio = audio || new AudioContext(); som.textContent = "🔔 som ligado"; alertar("teste de som"); };
+  document.querySelector("header").appendChild(som);
+  const vivo = document.createElement("button");
+  vivo.textContent = "● ao vivo";
+  vivo.onclick = () => ir(N - 1);
+  document.querySelector("header").appendChild(vivo);
+  async function tick() {
+    try {
+      const r = await (await fetch("/tick", { cache: "no-store" })).json();
+      if (r.erro) document.getElementById("relogio").textContent = r.erro;
+      if (versao !== null && r.versao !== versao) {
+        D = await (await fetch("/dados", { cache: "no-store" })).json();
+        fechadas = D.barras.slice();
+        graficos.forEach((g, i) => { g.p = D.paineis[i]; });
+        calcularMarcas();
+      }
+      versao = r.versao;
+      const ult = fechadas.length ? fechadas[fechadas.length - 1][0] : 0;
+      D.barras = r.barra && r.barra[0] > ult ? fechadas.concat([r.barra]) : fechadas.slice();
+      N = D.barras.length;
+      document.getElementById("slider").max = N - 1;
+      if (seguindo) passo = N - 1;
+      desenhar();
+      if (r.hor) document.getElementById("relogio").textContent = `${r.hor} · ${fmt(r.ult)}`;
+      vivo.style.borderColor = seguindo ? "var(--compra)" : "";
+    } catch (e) { document.getElementById("relogio").textContent = "sem conexão com o rrquant"; }
+  }
+  seguindo = true;
+  setInterval(tick, 1000);
+}
 const h0 = location.hash.slice(1);                      // abre num horário: arquivo.html#10:30
-ir(h0 ? Math.max(0, D.barras.findIndex(b => hora(b[0] + 120) >= h0)) : 0);
+ir(D.aovivo ? N - 1 : h0 ? Math.max(0, D.barras.findIndex(b => hora(b[0] + 120) >= h0)) : 0);
+setTimeout(desenhar, 150);
+if (D.aovivo) document.getElementById("titulo").textContent = `Ao vivo WIN · ${D.dia.split("-").reverse().join("/")}`;
 </script>
 </body>
 </html>
