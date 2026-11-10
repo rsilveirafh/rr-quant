@@ -116,7 +116,8 @@ def _pernas(ph: np.ndarray, pl: np.ndarray, h, l, a: int, t: int) -> int:
 # --------------------------------------------------------------------------- compra
 
 def _candidatos_compra(df: pd.DataFrame, niveis: pd.DataFrame, r: Regras, lado: str,
-                       funil: dict | None = None) -> list[dict]:
+                       funil: dict | None = None, espiao=None) -> list[dict]:
+    """``espiao(t, est)``, se dado, recebe o estado do setup no fim de cada barra (replay)."""
     funil = {} if funil is None else funil
     conta = lambda k: funil.__setitem__(k, funil.get(k, 0) + 1)  # noqa: E731
     o, h, l, c = (df[x].to_numpy() for x in ("abertura", "maxima", "minima", "fechamento"))
@@ -144,10 +145,13 @@ def _candidatos_compra(df: pd.DataFrame, niveis: pd.DataFrame, r: Regras, lado: 
         if novo_dia[t]:
             nv = niveis.loc[dia[t]] if dia[t] in niveis.index else None
             est = {
-                "abaixo": {} if nv is None else {k: nv[k] for k in ("PDL", "PWL", "PML") if pd.notna(nv[k])},
-                "acima": {} if nv is None else {k: nv[k] for k in ("PDH", "PWH", "PMH") if pd.notna(nv[k])},
+                # só é liquidez o que está do lado certo do preço na abertura
+                "abaixo": {} if nv is None else {k: nv[k] for k in ("PDL", "PWL", "PML")
+                                                 if pd.notna(nv[k]) and nv[k] < o[t]},
+                "acima": {} if nv is None else {k: nv[k] for k in ("PDH", "PWH", "PMH")
+                                                if pd.notna(nv[k]) and nv[k] > o[t]},
                 "eql": [], "fundos": [], "max_dia": -np.inf,
-                "varrida": None, "ordem": None, "posicao": None,
+                "varrida": None, "ordem": None, "posicao": None, "reprovado": None,
             }
         # ---- posição aberta: gestão
         pos = est["posicao"]
@@ -222,6 +226,7 @@ def _candidatos_compra(df: pd.DataFrame, niveis: pd.DataFrame, r: Regras, lado: 
                 # CHoCH: fecha acima do último topo confirmado antes do fundo
                 f = v["fundo"]
                 topos = [i for i in range(max(0, f - 120), f) if ph[i] and i + r.k_swing <= t]
+                v["ref"] = h[topos[-1]] if topos else None
                 if topos and c[t] > h[topos[-1]] and (c[t - 1] <= h[topos[-1]]):
                     ref = topos[-1]
                     conta("2 CHoCH")
@@ -235,6 +240,9 @@ def _candidatos_compra(df: pd.DataFrame, niveis: pd.DataFrame, r: Regras, lado: 
                         conta("x pernas reprovou")
                     if not vol_ratio > 1:
                         conta("x volume reprovou")
+                    if not ok:
+                        est["reprovado"] = {"t": tempo[t], "pernas": pernas, "forca": forca,
+                                            "vol_ratio": round(vol_ratio, 2), "nivel": v["nivel"]}
                     if ok:
                         conta("3 CHoCH aprovado")
                         est["ordem"] = {"t0": t, "fundo": l[f], "topo": h[f:t + 1].max(), "ativa": False,
@@ -272,6 +280,8 @@ def _candidatos_compra(df: pd.DataFrame, niveis: pd.DataFrame, r: Regras, lado: 
                     for m in ordem.get("motivos", ()):
                         conta(f"x ordem nunca ativa: {m}")
                 est["ordem"] = None
+        if espiao is not None:
+            espiao(t, est)
     return trades
 
 
