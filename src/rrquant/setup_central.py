@@ -48,6 +48,9 @@ class Regras:
     exigir_pernas: bool = True
     exigir_volume: bool = True
     exigir_varrida: bool = True
+    # tipos de correção (ver ``classificar_correcao``) em que a ordem pode ser executada;
+    # None aceita todos. Fora da lista, a ordem é cancelada no toque.
+    correcoes_aceitas: tuple[str, ...] | None = None
     ultima_entrada: str = "17:30"
     max_trades: int = 3
     max_stops: int = 2
@@ -113,6 +116,92 @@ def _pernas(ph: np.ndarray, pl: np.ndarray, h, l, a: int, t: int) -> int:
     return len(seq) + 1
 
 
+# --------------------------------------------------------------------------- correção
+
+FLATS = ("flat_regular", "flat_irregular", "flat_interrompida")
+
+
+def _seq_pivos(ph, pl, h, l, a: int, j_max: int, t_lim: int, k: int) -> list[list]:
+    """Pivôs alternados em (a, j_max] já confirmados em ``t_lim`` (j + k <= t_lim).
+    Pivôs seguidos do mesmo tipo ficam só com o extremo. Itens: [tipo, preço, posição]."""
+    seq: list[list] = []
+    for j in range(max(a + 1, 0), min(j_max, t_lim - k) + 1):
+        for tipo, flag, p in (("H", ph[j], h[j]), ("L", pl[j], l[j])):
+            if not flag:
+                continue
+            if seq and seq[-1][0] == tipo:
+                if (tipo == "H") == (p > seq[-1][1]):
+                    seq[-1][1:] = [p, j]
+            else:
+                seq.append([tipo, p, j])
+    return seq
+
+
+def _pernas_queda(ph, pl, h, l, a: int, t_lim: int, k: int) -> int:
+    """Pernas da queda que sai do topo ``a`` até ``t_lim`` (a perna em curso conta)."""
+    seq = _seq_pivos(ph, pl, h, l, a, t_lim, t_lim, k)
+    while seq and seq[0][0] == "H":
+        seq.pop(0)
+    return len(seq) + 1
+
+
+def classificar_correcao(ph, pl, h, l, k: int, t0: int, f: int, t_lim: int,
+                         entrada: float, tol: float) -> tuple[str, int]:
+    """Tipo do pullback de compra depois do CHoCH, com o que se sabia no fim de ``t_lim``.
+
+    ``f`` é o fundo do impulso, ``t0`` a barra do CHoCH e ``entrada`` o preço da ordem
+    limitada (a mínima da perna C é no máximo ela). Pivôs do fractal ``k`` (pequeno).
+
+    - A: queda a partir do topo de origem; B: repique; C: perna final até a entrada.
+    - B nivela o topo de A (dentro de ``tol``) e C rompe o fundo de A → flat_regular;
+      C só nivela → flat_classica (liquidez dos dois lados).
+    - B rompe o topo de A e C rompe o fundo → flat_irregular (BOS e CHoCH falsos);
+      C não rompe → flat_interrompida.
+    - B fica abaixo do topo de A → zigzag. Sem repique confirmado → linha_reta.
+
+    Limite conhecido: uma onda 5 que passa a 3 depois do CHoCH fica igual a uma B que
+    rompe o topo (irregular); separar as duas é leitura de contexto, não de geometria.
+    Devolve (tipo, pernas da perna C).
+    """
+    if t_lim <= f:
+        return "indefinida", 0
+    m = f + int(np.argmax(h[f:t_lim + 1]))
+    topo = h[m]
+    # ramo 1: o máximo é o topo de B, e A nasceu depois do CHoCH
+    ant = _seq_pivos(ph, pl, h, l, t0 - 1, m - 1, t_lim, k)
+    orig = [i for i in range(len(ant) - 1) if ant[i][0] == "H" and ant[i + 1][0] == "L"]
+    if orig:
+        _, h_a, a = ant[orig[-1]]
+        fundo_a = l[a:m + 1].min()
+        # B de flat passa a origem de A em no máximo 38,2% de A; mais que isso é impulso
+        if topo - h_a > 0.382 * (h_a - fundo_a):
+            orig = []
+    if orig:
+        estado_b = "rompe" if topo - h_a > tol else "nivela"
+        i_b = m
+    else:
+        # ramo 2: o máximo é o topo de origem de A; procura o repique (B) depois dele
+        pos = _seq_pivos(ph, pl, h, l, m, t_lim, t_lim, k)
+        while pos and pos[0][0] == "H":
+            pos.pop(0)
+        topos_b = [x for x in pos[1:] if x[0] == "H"]
+        if not topos_b:
+            return "linha_reta", _pernas_queda(ph, pl, h, l, m, t_lim, k)
+        _, topo_b, i_b = max(topos_b, key=lambda x: x[1])
+        fundo_a = l[m:i_b + 1].min()
+        estado_b = "nivela" if topo - topo_b <= tol else "abaixo"
+    c_min = min(l[i_b + 1:t_lim + 1].min() if i_b < t_lim else np.inf, entrada)
+    estado_c = ("rompe" if c_min < fundo_a - tol else
+                "nivela" if c_min <= fundo_a + tol else "nao_chega")
+    pernas_c = _pernas_queda(ph, pl, h, l, i_b, t_lim, k)
+    if estado_b == "abaixo":
+        return "zigzag", pernas_c
+    if estado_b == "rompe":
+        return ("flat_irregular" if estado_c == "rompe" else "flat_interrompida"), pernas_c
+    tipo = {"rompe": "flat_regular", "nivela": "flat_classica"}.get(estado_c, "indefinida")
+    return tipo, pernas_c
+
+
 # --------------------------------------------------------------------------- compra
 
 def _candidatos_compra(df: pd.DataFrame, niveis: pd.DataFrame, r: Regras, lado: str,
@@ -173,11 +262,21 @@ def _candidatos_compra(df: pd.DataFrame, niveis: pd.DataFrame, r: Regras, lado: 
         # ---- ordem pendurada: execução (com o topo/alvo da barra anterior)
         ordem = est["ordem"]
         if ordem is not None and est["posicao"] is None and ordem["ativa"] and hhmm[t] <= r.ultima_entrada:
+            executa = False
             if l[t] <= ordem["entrada"] - r.atravessar:
+                # correção lida com as barras até t-1 (a ordem é decidida antes do toque)
+                corr, pernas_c = classificar_correcao(ph1, pl1, h, l, r.k_perna, ordem["t0"],
+                                                      ordem["i_fundo"], t - 1, ordem["entrada"],
+                                                      r.tol_eq)
+                est["ordem"] = None
+                executa = r.correcoes_aceitas is None or corr in r.correcoes_aceitas
+                if not executa:
+                    conta(f"x correção recusada: {corr}")
+            if executa:
                 ent = min(o[t], ordem["entrada"])
                 pos = {**ordem["info"], "lado": lado, "t_entrada": tempo[t], "entrada": ent,
-                       "stop": ordem["stop"], "alvo": ordem["alvo"], "risco": ent - ordem["stop"]}
-                est["ordem"] = None
+                       "stop": ordem["stop"], "alvo": ordem["alvo"], "risco": ent - ordem["stop"],
+                       "correcao": corr, "pernas_c": pernas_c}
                 conta("5 executada")
                 if l[t] <= pos["stop"]:              # stop na própria barra de entrada
                     saida = min(o[t], pos["stop"]) if o[t] <= pos["stop"] else pos["stop"]
@@ -245,7 +344,7 @@ def _candidatos_compra(df: pd.DataFrame, niveis: pd.DataFrame, r: Regras, lado: 
                                             "vol_ratio": round(vol_ratio, 2), "nivel": v["nivel"]}
                     if ok:
                         conta("3 CHoCH aprovado")
-                        est["ordem"] = {"t0": t, "fundo": l[f], "topo": h[f:t + 1].max(), "ativa": False,
+                        est["ordem"] = {"t0": t, "i_fundo": f, "fundo": l[f], "topo": h[f:t + 1].max(), "ativa": False,
                                         "info": {"nivel": v["nivel"], "t_choch": tempo[t], "pernas": pernas,
                                                  "forca": forca, "vol_ratio": round(vol_ratio, 2),
                                                  "delta_agr": agr[f + 1:t + 1].sum()}}
@@ -389,6 +488,10 @@ def main(argv: list[str] | None = None) -> int:
         "sem filtro de volume": replace(base, exigir_volume=False),
         "entrada em 50%": replace(base, fib=0.5),
         "entrada em 79%": replace(base, fib=0.79),
+        "só flats (reg+irreg+interromp)": replace(base, correcoes_aceitas=FLATS),
+        "sem linha reta": replace(base, correcoes_aceitas=(
+            *FLATS, "zigzag", "flat_classica", "indefinida")),
+        "só flat irregular": replace(base, correcoes_aceitas=("flat_irregular",)),
     }
     linhas = {}
     for nome, r in variantes.items():
@@ -407,6 +510,12 @@ def main(argv: list[str] | None = None) -> int:
         for col in ("lado", "nivel", "hora", "ano"):
             print(p.groupby(col).R.agg(trades="size", media_R="mean", total_R="sum")
                   .round(2).to_string(), "\n")
+        g = p.assign(ganhou=p.R > 0).groupby("correcao")
+        tab = pd.DataFrame({"trades": g.size(), "acerto_%": 100 * g.ganhou.mean(),
+                            "media_R": g.R.mean(), "total_R": g.R.sum(),
+                            "pernas_c_med": g.pernas_c.median()})
+        print("Por tipo de correção (amostra pequena: descrição, não conclusão)")
+        print(tab.sort_values("trades", ascending=False).round(2).to_string(), "\n")
     return 0
 
 
