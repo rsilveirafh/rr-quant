@@ -6,7 +6,7 @@ onde agir, e o backtest diz se cada regra se paga no histórico. Regra que não 
 sai daqui.
 
 Em resumo: **poucos trades, risco fixo, alvo de pelo menos 3 vezes o risco, e só entrar quando
-houver lugar, evento e volume ao mesmo tempo.**
+houver lugar, evento, volume e uma correção com cara de correção ao mesmo tempo.**
 
 ---
 
@@ -113,8 +113,14 @@ Na zona do macro, há dois jeitos de entrar:
 
 - **BOS:** quebra a favor da tendência (continuidade).
 - **CHoCH:** rompe o fundo (ou topo) que originou o último BOS (reversão).
-- **Indução:** antes do movimento de verdade, o preço "finge que vai" e pega os stops de quem
+- **Indução (IDM):** antes do movimento de verdade, o preço "finge que vai" e pega os stops de quem
   entrou cedo. Quebra de estrutura sem contexto é só indução.
+  - **Fake BOS:** o preço rompe o topo como se fosse continuar, quem comprou o rompimento é stopado
+    na volta. Minha compra entra embaixo, depois disso.
+  - **Fake CHoCH:** o preço perde o fundo como se fosse virar, quem vendeu a quebra é stopado. Minha
+    compra entra depois disso.
+  - **Regra:** antes de abrir posição, já precisa ter havido uma indução. Sem indução, quem está
+    sendo induzido sou eu.
 
 ### CHoCH válido × CHoCH falso
 
@@ -123,8 +129,13 @@ Na zona do macro, há dois jeitos de entrar:
 | Impulso que rompe | **5 pernas**, ou uma barra de força muito grande | **3 pernas** (ABC), com sobreposição, rompe só de pavio |
 | O que rompe | o fundo/topo **que originou o BOS** | não rompe esse fundo/topo |
 | Volume na quebra | **crescente** | **decrescente**: invalida, mesmo com 5 pernas |
-| Pullback | **ABC** (zigzag, flat ou reacumulação) até o discount | pullback em 5 pernas: não compra |
+| Pullback | **ABC** (zigzag, flat ou reacumulação) até o discount | pullback impulsivo, em 5 pernas sem A e B antes: não compra |
 | O que fazer | entra no pullback | não opera o pullback (pode até operar contra) |
+
+> **5 pernas no pullback × 5 subondas na perna C.** São coisas diferentes. Um pullback que desce
+> em 5 pernas direto, sem repique, é impulso contra mim: não compro. Já a perna **C de uma flat**
+> desce em 5 subondas por definição (a flat é 3-3-5), e é no fim dela que eu compro. O que manda é
+> haver **A e B antes**.
 
 ---
 
@@ -136,6 +147,40 @@ Fibonacci traçado no **impulso inteiro**.
 - **Venda só no premium:** acima de 50% do movimento de baixa.
 - Correção rasa (38,2% a 50%) só vale em **flat** ou **reacumulação**.
 - Vale depois de CHoCH e depois de BOS.
+
+---
+
+## 6.1. Qualidade da correção (a parte que mais separa trade de stop)
+
+**Impulso tem que ter cara de impulso, correção tem que ter cara de correção.** Lugar, gatilho e
+discount certos não salvam uma correção ruim.
+
+- **Chegada em linha reta** (o preço volta até a zona sem repique, rápido, com barras grandes):
+  **não pego no toque.** Espero CHoCH no micro e pullback.
+- **Chegada com relutância** (canal ou cunha descendente, "deriva", barras se sobrepondo): mostra
+  que quem empurrava está fraco. Conta a favor.
+
+### Flat (3-3-5)
+
+A onda **A** é um ABC contra o movimento, a **B** é um ABC a favor e a **C** desce em **5
+subondas** até o order block. É no fim da C que eu compro.
+
+| Tipo | Topo da B × topo de origem | Fundo da C × fundo da A | Opero? |
+|---|---|---|---|
+| **Regular** | nivela (vira EQH: liquidez dupla de alvo) | rompe | sim |
+| **Irregular** | rompe (fake BOS) | rompe (fake CHoCH) | **sim, a melhor**: induz os dois lados |
+| **Interrompida** | rompe | não chega, para num OB | às vezes (rara) |
+| **Clássica** | nivela | nivela | **nunca**: liquidez em cima e embaixo |
+
+- **Flat × zigzag:** o zigzag (ABC simples) deixa só um topo como alvo. A flat deixa dois topos
+  ou uma dupla indução. Zigzag só quando o movimento anterior foi muito forte.
+- Se as 5 subondas da C saírem feias (sobrepostas, sem ritmo), **cancelo a ordem**.
+
+### Canal, bandeira e cunha de continuação: regra dos 5 toques
+
+Só pego no toque (ou no CHoCH) com **pelo menos 5 toques** somados nas bordas do canal. Com 4, o
+preço tende a fazer mais um toque embaixo e a compra antecipada vira stop. Cada toque em cima
+acumula liquidez; cada toque embaixo é uma captura.
 
 ---
 
@@ -159,6 +204,21 @@ Ciclo: acumulação → alta → reacumulação → alta → distribuição → 
 - **Melhor trade numa lateral:** o preço varre os últimos fundos (**spring**, com aumento de
   volume), faz CHoCH para cima e pullback. Alternativa: pullback depois que o preço sai da faixa.
 - **Erro clássico:** vender o rompimento do fundo da lateral. Quase sempre é o spring.
+
+**Fases do Wyckoff** (servem para acumulação, reacumulação, distribuição e redistribuição):
+
+| Fase | Função |
+|---|---|
+| A | parar a tendência anterior |
+| B | manipular os extremos (varre em cima e embaixo) |
+| C | captura total de liquidez (spring na acumulação, UTAD na distribuição) |
+| D e E | expansão e o pullback que eu opero |
+
+- **Acumulação** e **distribuição** revertem a tendência. **Reacumulação** e **redistribuição**
+  continuam.
+- Nem toda lateral é flat. Uma lateral longa com fases é Wyckoff; a flat é uma correção de 3 ondas.
+- O contexto decide o lado: com macro de alta, fase D e liquidez acima (PDH, PWH), um pullback
+  em 5 subondas é compra, não venda.
 
 ---
 
@@ -189,7 +249,9 @@ Compra (a venda é o espelho):
 | 1 | **Captura de liquidez** antes: PDL, PWL, PML, EQL ou fundo de lateral varrido | sim |
 | 2 | **CHoCH válido** no micro (5 pernas, rompe o fundo de origem) | sim |
 | 3 | **Volume crescente** na quebra | sim |
-| 4 | **Pullback corretivo** (ABC, flat ou reacumulação) | sim |
+| 4 | **Pullback corretivo** (ABC, flat ou reacumulação), nunca em linha reta | sim |
+| 4a | **Indução** antes da entrada (fake BOS ou fake CHoCH) | sim |
+| 4b | Correção do tipo **flat irregular ou regular** | soma |
 | 5 | **Discount**: retração de 61,8% a 79% | sim |
 | 6 | **Order block ou FVG** na zona da retração (o gatilho) | sim |
 | 7 | POC ou área de valor na mesma zona | soma |
@@ -211,6 +273,9 @@ Compra (a venda é o espelho):
 - O volume não confirma a quebra.
 - Notícia forte nos próximos minutos (o aviso da agenda).
 - Fora da janela que eu consigo acompanhar com atenção total (cerca de 1 hora).
+- O preço chegou à zona em linha reta e ainda não houve CHoCH no micro.
+- A correção é uma **flat clássica** (liquidez dos dois lados).
+- Canal de continuação com menos de 5 toques.
 
 ---
 
@@ -226,6 +291,9 @@ Nenhuma regra acima foi testada ainda. O rr-quant vai medir, com custos:
 4. **O filtro macro da manhã melhora o resultado** ou só reduz o número de trades?
 5. **O alvo de 3R é alcançável no WIN** com stop de 200 a 300 pontos, dentro do horário que eu
    opero?
+6. **O tipo de correção muda o resultado?** Flat irregular, flat regular, zigzag e chegada em
+   linha reta, comparados em R por trade. (A aula afirma que a flat irregular é a melhor; é a
+   hipótese a derrubar ou confirmar.)
 
 Primeiro com dados do Ibovespa em 60 min (para montar o motor), depois com a série do WIN
 exportada do Profit (para valer de verdade).
