@@ -31,3 +31,7 @@ data/transcricoes/
 
 # historico do Profit (dados do usuario, nao versionar)
 data/profit/
+
+# respostas exportadas do treino (dados pessoais, nao versionar)
+treino/treino-respostas-*.csv
+treino/treino-backup-*.json

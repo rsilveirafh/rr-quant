@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Treino do Operacional</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: caderno de estudo com trilho de módulos à esquerda e uma coluna de leitura; gráficos de preço desenhados à mão em SVG */
+:root{
+  --bg:#eef2f4; --paper:#fbfcfd; --ink:#18232e; --muted:#5b6a78; --line:#d5dde3;
+  --accent:#1f5f8b; --accent-soft:#dfeaf2; --liq:#a8660c; --liq-soft:#f6ead6;
+  --up:#1d7a52; --up-soft:#dcefe5; --down:#b8433a; --down-soft:#f6e1de;
+  --f-display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#10161c; --paper:#161e26; --ink:#e3e9ee; --muted:#93a3b1; --line:#2a3642;
+  --accent:#7bb4dc; --accent-soft:#1c2e3d; --liq:#e3a94f; --liq-soft:#33291a;
+  --up:#5cc495; --up-soft:#16302a; --down:#ec8a80; --down-soft:#3a201f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10161c; --paper:#161e26; --ink:#e3e9ee; --muted:#93a3b1; --line:#2a3642;
+  --accent:#7bb4dc; --accent-soft:#1c2e3d; --liq:#e3a94f; --liq-soft:#33291a;
+  --up:#5cc495; --up-soft:#16302a; --down:#ec8a80; --down-soft:#3a201f; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.6;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 60px}
+.app{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:270px minmax(0,1fr);gap:28px;align-items:start}
+header.top{max-width:1180px;margin:0 auto 22px;display:flex;flex-wrap:wrap;gap:12px 24px;align-items:end;justify-content:space-between}
+header.top h1{font-family:var(--f-display);font-weight:800;font-size:clamp(1.6rem,3.2vw,2.3rem);line-height:1.1;margin:0;letter-spacing:-.01em;text-wrap:balance}
+header.top p{margin:4px 0 0;color:var(--muted);max-width:60ch}
+.placar{display:flex;gap:18px;font-family:var(--f-mono);font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.placar b{display:block;font-size:1.3rem;color:var(--ink);font-weight:500}
+nav.trilho{position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px);display:flex;flex-direction:column;gap:2px}
+nav.trilho button{all:unset;cursor:pointer;display:grid;grid-template-columns:28px 1fr auto;gap:8px;align-items:center;padding:7px 10px;border-radius:6px;font-size:.92rem;line-height:1.3}
+nav.trilho button:hover{background:var(--paper)}
+nav.trilho button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+nav.trilho button.on{background:var(--paper);box-shadow:inset 3px 0 0 var(--accent);font-weight:600}
+nav.trilho .n{font-family:var(--f-mono);font-size:.78rem;color:var(--muted)}
+nav.trilho .pg{font-family:var(--f-mono);font-size:.72rem;color:var(--muted);font-variant-numeric:tabular-nums}
+nav.trilho .pg.ok{color:var(--up)}
+.barra{height:4px;background:var(--line);border-radius:2px;overflow:hidden;margin:4px 10px 12px}
+.barra i{display:block;height:100%;background:var(--accent);transition:width .3s}
+select.trilho-m{display:none;width:100%;font:inherit;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);margin-bottom:16px}
+main{min-width:0}
+article{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:clamp(18px,4vw,44px)}
+.eyebrow{font-family:var(--f-mono);font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+article h2{font-family:var(--f-display);font-weight:700;font-size:clamp(1.45rem,2.6vw,1.9rem);line-height:1.15;margin:.2em 0 .5em;text-wrap:balance}
+article h3{font-family:var(--f-display);font-weight:700;font-size:1.12rem;margin:1.8em 0 .4em}
+article p,article ul,article ol{max-width:68ch}
+article p{margin:.7em 0}
+article li{margin:.25em 0}
+.lead{font-size:1.06rem;color:var(--muted)}
+.nota{max-width:68ch;margin:1.2em 0;padding:12px 16px;border-radius:8px;background:var(--liq-soft);border:1px solid color-mix(in srgb,var(--liq) 35%,transparent)}
+.nota b:first-child{color:var(--liq)}
+.tab{overflow-x:auto;margin:1em 0;max-width:100%}
+table{border-collapse:collapse;font-size:.92rem;min-width:420px}
+th,td{text-align:left;padding:7px 12px 7px 0;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--f-mono);font-size:.75rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:500}
+code,.mono{font-family:var(--f-mono);font-size:.9em}
+figure{margin:1.2em 0;max-width:720px}
+figure .svgw{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+figure svg{display:block;width:100%;min-width:480px;height:auto}
+figcaption{font-size:.85rem;color:var(--muted);margin-top:6px;max-width:68ch}
+svg .grid{stroke:var(--line);stroke-width:1}
+svg .seg-up{stroke:var(--up)} svg .seg-down{stroke:var(--down)}
+svg .seg{stroke-width:2.4;fill:none;stroke-linecap:round}
+svg .seg.fut{stroke-dasharray:5 5;opacity:.55}
+svg .lvl{stroke:var(--liq);stroke-width:1.4;stroke-dasharray:6 4}
+svg .lvl.az{stroke:var(--accent)}
+svg .lvlt{fill:var(--liq);font-family:var(--f-mono);font-size:11px}
+svg .lvlt.az{fill:var(--accent)}
+svg .zona{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1}
+svg .zonat{fill:var(--accent);font-family:var(--f-mono);font-size:10.5px}
+svg .mk{fill:var(--paper);stroke:var(--ink);stroke-width:1.4}
+svg .mkt{fill:var(--ink);font-family:var(--f-display);font-weight:700;font-size:13px}
+svg .mkt.peq{font-family:var(--f-mono);font-weight:500;font-size:10.5px;fill:var(--muted)}
+svg .linha{stroke:var(--muted);stroke-width:1.2}
+/* perguntas */
+.q{max-width:68ch;margin:1.6em 0;padding:18px 18px 16px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.q .qh{font-family:var(--f-mono);font-size:.74rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;gap:8px}
+.q .en{font-weight:600;margin:.4em 0 .8em}
+.q figure{margin:.6em 0 1em}
+.ops{display:flex;flex-direction:column;gap:8px}
+.ops button{all:unset;cursor:pointer;padding:10px 14px;border-radius:8px;border:1px solid var(--line);background:var(--paper);line-height:1.4}
+.ops button:hover:not([disabled]){border-color:var(--accent)}
+.ops button:focus-visible{outline:2px solid var(--accent)}
+.ops button[disabled]{cursor:default}
+.ops button.certa{border-color:var(--up);background:var(--up-soft)}
+.ops button.errada{border-color:var(--down);background:var(--down-soft)}
+.ops button.esmaecida{opacity:.55}
+.linha-in{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.linha-in input{font:inherit;font-family:var(--f-mono);padding:9px 12px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);width:12ch}
+textarea{font:inherit;width:100%;min-height:110px;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);resize:vertical}
+input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.btn{all:unset;cursor:pointer;padding:9px 16px;border-radius:8px;background:var(--accent);color:var(--paper);font-weight:600;font-size:.92rem}
+.btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.btn.sec{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+.btn[aria-disabled="true"]{opacity:.5;cursor:progress}
+.fb{margin-top:12px;padding:12px 14px;border-radius:8px;font-size:.95rem}
+.fb.ok{background:var(--up-soft)} .fb.no{background:var(--down-soft)} .fb.meio{background:var(--liq-soft)}
+.fb b{display:block;margin-bottom:2px}
+.refazer{all:unset;cursor:pointer;font-size:.8rem;color:var(--muted);text-decoration:underline;margin-top:8px;display:inline-block}
+.rodape{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;margin-top:2.4em;padding-top:1.2em;border-top:1px solid var(--line)}
+.lista-erros li{margin:.6em 0}
+@media (max-width:860px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  nav.trilho{display:none}
+  select.trilho-m{display:block}
+}
+@media (prefers-reduced-motion:reduce){.barra i{transition:none}}
+.acoes{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.aviso{font-size:.85rem;color:var(--muted);margin-top:6px}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div>
+    <h1>Treino do Operacional</h1>
+    <p>O teu operacional de WIN em 16 módulos curtos. Cada um explica uma regra e testa com perguntas. Errar aqui é barato; errar no pregão custa R.</p>
+    <p class="aviso">As respostas ficam guardadas neste navegador, com o histórico de cada tentativa. Limpar os dados do navegador apaga tudo: faça um backup de vez em quando.</p>
+  </div>
+  <div class="placar" aria-live="polite">
+    <div><b id="pl-resp">0</b>respondidas</div>
+    <div><b id="pl-cert">0</b>certas</div>
+    <div><b id="pl-tot">0</b>perguntas</div>
+  </div>
+  <div class="acoes">
+    <button class="btn sec" id="bt-csv">Exportar respostas (CSV)</button>
+    <button class="btn sec" id="bt-json">Backup (JSON)</button>
+    <button class="btn sec" id="bt-imp">Importar backup</button>
+    <input type="file" id="in-imp" accept=".json,application/json" hidden>
+  </div>
+</header>
+
+<div class="app">
+  <div>
+    <select class="trilho-m" id="sel" aria-label="Escolher módulo"></select>
+    <nav class="trilho" id="nav" aria-label="Módulos"></nav>
+  </div>
+  <main><article id="art"></article></main>
+</div>
+
+<script>
+// ------------------------------------------------------------------ gráficos (x 0..100, preço 0..100)
+const IMP=[[0,12],[7,38],[11,29],[19,64],[23,54],[30,80]];
+const ONDAS=[[7,38,'1','c'],[11,29,'2','b'],[19,64,'3','c'],[23,54,'4','b'],[30,80,'5','c']];
+const NIV_FLAT=[{y:80,rot:'topo de origem'},{y:52,rot:'fundo da A'}];
+const G={
+  ondas:{pts:IMP.concat([[36,62],[40,70],[46,50]]),fut:1,marcas:ONDAS.concat([[36,62,'A','b'],[40,70,'B','c'],[46,50,'C','b']])},
+  linhaReta:{pts:IMP.concat([[43,47]]),marcas:ONDAS,zonas:[{x0:40,x1:52,y0:44,y1:50,rot:'OB'}]},
+  relutancia:{pts:IMP.concat([[33,70],[35,74],[38,63],[40,67],[43,57],[45,61],[48,50]]),marcas:ONDAS,zonas:[{x0:46,x1:56,y0:46,y1:52,rot:'OB'}],linhas:[[30,80,48,62],[33,70,48,50]]},
+  zigzag:{pts:IMP.concat([[35,62],[39,71],[45,48],[60,92]]),fut:1,marcas:[[35,62,'A','b'],[39,71,'B','c'],[45,48,'C','b']],niveis:[{y:80,rot:'1 topo só'}]},
+  flatReg:{pts:IMP.concat([[34,63],[37,71],[41,52],[45,70],[48,62],[52,80],[55,67],[57,73],[61,55],[63,61],[67,46]]),marcas:[[41,52,'A','b'],[52,80,'B','c'],[67,46,'C','b']],niveis:NIV_FLAT},
+  flatIrr:{pts:IMP.concat([[34,63],[37,71],[41,52],[45,72],[48,65],[52,87],[55,72],[57,77],[61,58],[63,63],[67,44]]),marcas:[[41,52,'A','b'],[52,87,'B','c'],[67,44,'C','b']],niveis:NIV_FLAT},
+  flatInt:{pts:IMP.concat([[34,63],[37,71],[41,52],[45,72],[48,65],[52,87],[55,74],[57,79],[61,64],[63,69],[67,58]]),marcas:[[41,52,'A','b'],[52,87,'B','c'],[67,58,'C','b']],niveis:NIV_FLAT},
+  flatCla:{pts:IMP.concat([[34,63],[37,71],[41,52],[45,70],[48,62],[52,80],[55,67],[57,73],[61,58],[63,63],[67,52]]),marcas:[[41,52,'A','b'],[52,80,'B','c'],[67,52,'C','b']],niveis:NIV_FLAT},
+  flatIrrSub:{pts:IMP.concat([[34,63],[37,71],[41,52],[45,72],[48,65],[52,87],[55,72],[57,77],[61,58],[63,63],[67,44],[82,97]]),fut:1,
+    marcas:[[41,52,'A','b'],[52,87,'B','c'],[55,72,'1','b'],[57,77,'2','c'],[61,58,'3','b'],[63,63,'4','c'],[67,44,'5','b']],niveis:NIV_FLAT,zonas:[{x0:64,x1:74,y0:42,y1:48,rot:'OB'}]},
+  choch:{pts:[[0,92],[8,70],[13,80],[21,58],[26,68],[34,45],[40,60],[46,52],[54,76]],
+    marcas:[[13,80,'','c'],[26,68,'','c'],[40,60,'','c'],[34,45,'','b']],niveis:[{y:80,rot:'90/80: topos antigos'},{y:68,rot:'68'},{y:60,rot:'60',az:1}]},
+  liquidez:{pts:[[0,40],[10,70],[16,52],[24,70.5],[32,45],[42,62],[50,38],[58,55]],
+    niveis:[{y:82,rot:'PDH'},{y:70.5,rot:'EQH (2 topos)'},{y:24,rot:'PDL'}],marcas:[[10,70,'','c'],[24,70.5,'','c']]},
+  canal:{pts:[[0,20],[14,82],[22,64],[28,74],[36,57],[41,63]],fut:0,
+    marcas:[[22,64,'1','b'],[28,74,'2','c'],[36,57,'3','b']],linhas:[[14,82,60,58],[16,72,60,44]],zonas:[{x0:38,x1:50,y0:52,y1:57,rot:'OB'}]},
+  wyckoff:{pts:[[0,96],[10,60],[14,22],[20,58],[26,27],[32,52],[38,24],[44,50],[50,12],[56,42],[60,31],[68,64],[73,51],[86,93]],
+    marcas:[[14,22,'SC','b'],[20,58,'AR','c'],[26,27,'ST','b'],[50,12,'spring','b'],[68,64,'CHoCH','c'],[73,51,'LPS','b']],niveis:[{y:58,rot:'topo da lateral'},{y:22,rot:'fundo da lateral'}]},
+  caso:{pts:[[0,70],[8,52],[12,58],[20,36],[25,40],[29,30],[34,46],[37,40],[42,58],[45,50],[50,66],[53,58],[56,65],[59,54],[62,64],[64,62],[66,70],[69,61],[71,64],[74,57],[76,60],[79,52]],
+    niveis:[{y:30.5,rot:'PWL (varrida)'},{y:88,rot:'PDH (alvo)'}],marcas:[[29,30,'varrida','b'],[50,66,'topo','c'],[79,52,'entrada?','b']],zonas:[{x0:76,x1:90,y0:49,y1:54,rot:'OB + 61,8%'}]},
+};
+
+function svgGrafico(g){
+  const W=680,H=270,L=14,R=128,T=18,B=22;
+  let ys=g.pts.map(p=>p[1]).concat((g.niveis||[]).map(n=>n.y));
+  (g.zonas||[]).forEach(z=>ys.push(z.y0,z.y1));
+  let ymin=Math.min(...ys)-6,ymax=Math.max(...ys)+8;
+  const X=x=>L+x/100*(W-L-R), Y=y=>H-B-(y-ymin)/(ymax-ymin)*(H-T-B);
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Gráfico ilustrativo de preço">`;
+  for(let i=1;i<5;i++){const y=T+i*(H-T-B)/5;s+=`<line class="grid" x1="${L}" x2="${W-R}" y1="${y}" y2="${y}"/>`}
+  (g.zonas||[]).forEach(z=>{s+=`<rect class="zona" x="${X(z.x0)}" y="${Y(z.y1)}" width="${X(z.x1)-X(z.x0)}" height="${Y(z.y0)-Y(z.y1)}" rx="2"/><text class="zonat" x="${X(z.x1)+4}" y="${Y((z.y0+z.y1)/2)+4}">${z.rot}</text>`});
+  (g.niveis||[]).forEach(n=>{const c=n.az?' az':'';s+=`<line class="lvl${c}" x1="${L}" x2="${W-R+6}" y1="${Y(n.y)}" y2="${Y(n.y)}"/><text class="lvlt${c}" x="${W-R+10}" y="${Y(n.y)+4}">${n.rot}</text>`});
+  (g.linhas||[]).forEach(l=>{s+=`<line class="linha" x1="${X(l[0])}" y1="${Y(l[1])}" x2="${X(l[2])}" y2="${Y(l[3])}"/>`});
+  const p=g.pts;
+  for(let i=1;i<p.length;i++){
+    const up=p[i][1]>=p[i-1][1], fut=g.fut&&i===p.length-1;
+    s+=`<line class="seg ${up?'seg-up':'seg-down'}${fut?' fut':''}" x1="${X(p[i-1][0])}" y1="${Y(p[i-1][1])}" x2="${X(p[i][0])}" y2="${Y(p[i][1])}"/>`;
+  }
+  (g.marcas||[]).forEach(m=>{
+    const [x,y,t,lado]=m, cx=X(x), cy=Y(y);
+    s+=`<circle class="mk" cx="${cx}" cy="${cy}" r="3.2"/>`;
+    if(t){const peq=t.length>2?' peq':'';s+=`<text class="mkt${peq}" text-anchor="middle" x="${cx}" y="${lado==='c'?cy-9:cy+18}">${t}</text>`}
+  });
+  return s+'</svg>';
+}
+function fig(nome,leg){return `<figure><div class="svgw">${svgGrafico(G[nome])}</div>${leg?`<figcaption>${leg}</figcaption>`:''}</figure>`}
+
+// ------------------------------------------------------------------ conteúdo
+const MODS=[
+{id:'como',t:'Como usar este treino',b:[
+ {h:`<p class="lead">Este treino é o teu <span class="mono">docs/meu-operacional.md</span> transformado em aula. A ordem dos módulos é a ordem em que a decisão acontece: primeiro o risco, depois a leitura da manhã, depois o lugar, o evento, a correção e por fim o gatilho.</p>
+ <p>Cada módulo tem explicação curta e perguntas. Tem quatro tipos:</p>
+ <ul><li><b>Escolha</b>: clica na opção e vê na hora se acertou e por quê.</li>
+ <li><b>Conta</b>: digita o número. Pontos, reais ou R.</li>
+ <li><b>Leitura de gráfico</b>: um desenho de preço e uma pergunta sobre ele. Verde é perna de alta, vermelho é perna de baixa, tracejado é o que ainda não aconteceu.</li>
+ <li><b>Aberta</b>: você escreve com as próprias palavras, compara com a resposta de referência e se avalia. Para uma correção mais fina, exporte as respostas e mande para o Claude.</li></ul>
+ <p>As respostas ficam salvas neste navegador. Dá pra parar e voltar depois; o placar no topo mostra quanto falta. "Responder de novo" não apaga a tentativa anterior: tudo entra no histórico, e o export traz a evolução.</p>`},
+ {nota:`<b>Uma regra pra levar daqui:</b> tudo neste treino é regra a testar, não verdade. O curso que originou parte das regras mostra os trades que deram certo. Quem decide se a regra fica é o backtest do rr-quant.`},
+ {q:{id:'como-1',tipo:'mc',en:'Se uma regra deste treino não passar no backtest, o que acontece com ela?',
+  ops:['Continua, porque o professor opera conta real','Sai do operacional','Fica, mas com mão menor','Fica só pros dias de tendência'],c:1,
+  ex:'Está escrito na abertura do teu operacional: "regra que não passar no backtest sai daqui". Resultado mostrado em live é amostra escolhida; backtest é a amostra inteira.'}},
+]},
+{id:'risco',t:'Risco vem antes de tudo',b:[
+ {h:`<p class="lead">Antes de olhar gráfico, você já sabe quanto pode perder. Isso não muda com o humor do dia.</p>
+ <p><b>R</b> é o tamanho do risco de um trade: a distância da entrada até o stop. Tudo se mede em R. Um alvo de 3R paga três vezes o que um stop custa.</p>`},
+ {tab:{cab:['Regra','Valor'],l:[['Stop técnico','no máximo 300 pts'],['Alvo mínimo','3R'],['Trades por dia','no máximo 3'],['Parada do dia','depois de 2 stops'],['Contratos','fixos, decididos antes do pregão'],['Parcial','nenhuma antes de 3R'],['Saídas','stop, 0×0 técnico ou alvo']]}},
+ {h:`<h3>A conta no WIN</h3><p>Cada ponto vale <b>R$ 0,20 por contrato</b>. Um stop de 300 pontos com 1 contrato custa R$ 60. O pior dia possível são 2 stops de 300: 600 pontos, ou R$ 120 por contrato.</p>
+ <p>O stop vem da estrutura, abaixo do fundo que originou a entrada. Se a estrutura pede mais de 300 pontos, você não opera, ou desce pro tempo gráfico menor e espera um stop que caiba.</p>`},
+ {q:{id:'risco-1',tipo:'num',en:'Stop técnico de 250 pontos, operando 2 contratos. Quanto você perde, em reais, se o stop for executado?',val:100,tol:0.5,un:'R$',
+  ex:'250 pts × R$ 0,20 × 2 contratos = R$ 100.'}},
+ {q:{id:'risco-2',tipo:'num',en:'Com stop de 200 pontos, qual é o alvo mínimo em pontos?',val:600,tol:0.5,un:'pts',ex:'3R = 3 × 200 = 600 pontos.'}},
+ {q:{id:'risco-3',tipo:'num',en:'Com alvo de 3R e stop de 1R, qual a taxa de acerto mínima pra empatar (sem custos)?',val:25,tol:0.6,un:'%',
+  ex:'Um alvo paga 3 stops. Em 4 trades, 1 alvo (+3R) e 3 stops (−3R) dão zero. 1 em 4 = 25%.'}},
+ {q:{id:'risco-4',tipo:'num',en:'Num mês ruim: 10 trades, 3 alvos de 3R e 7 stops. Qual o resultado, em R?',val:2,tol:0.05,un:'R',
+  ex:'3 × 3R = +9R. 7 × (−1R) = −7R. Sobra +2R. É a conta que o professor mostrou na aula 2 — e só fecha se o alvo for mesmo 3R. Com custos, um pouco menos.'}},
+ {q:{id:'risco-5',tipo:'mc',en:'Já são 11h, você levou 2 stops e aparece o setup mais bonito da semana. O que você faz?',
+  ops:['Entra com metade da mão','Entra normal, o setup é A+','Não entra. Acabou o dia','Entra só se o alvo for maior que 5R'],c:2,
+  ex:'Depois de 2 stops o dia acabou, sem exceção. A regra existe justamente para o momento em que o setup parece irresistível.'}},
+ {q:{id:'risco-6',tipo:'mc',en:'A estrutura pede um stop de 420 pontos. Qual atitude segue o operacional?',
+  ops:['Coloca stop de 300 e torce','Reduz para 1 contrato e aceita os 420','Não opera, ou desce para o micro e espera um stop técnico que caiba em 300','Opera sem stop e monitora'],c:2,
+  ex:'Stop não se escolhe por conveniência: ele vem da estrutura. Se a estrutura não cabe em 300, o trade não existe nesse tempo gráfico.'}},
+]},
+{id:'manha',t:'A leitura da manhã',b:[
+ {h:`<p class="lead">Antes das 9h a pergunta é só uma: vale operar hoje, e pra que lado?</p>
+ <p>A leitura segue sempre a mesma cadeia:</p>
+ <p class="mono" style="font-size:1rem">petróleo → inflação → juros (DI) → ativos de risco e câmbio</p>
+ <ul><li><b>Juros (DI) primeiro.</b> Curva fechando favorece alta do índice; abrindo, queda.</li>
+ <li><b>DXY</b> separa o dólar subindo no mundo do dólar subindo só contra o real.</li>
+ <li><b>EUA</b>: o Ibovespa anda mais perto do Dow que do Nasdaq. O <b>EWZ</b> é a ponte entre o fechamento americano e o pregão daqui.</li>
+ <li><b>Commodities</b>: minério (Vale) e petróleo (Petrobras) pesam no índice.</li>
+ <li><b>VIX acima de 20</b> é alerta de realização.</li>
+ <li><b>Agenda</b> (Copom, payroll, CPI, IPCA) vira aviso de horário, não proibição.</li></ul>`},
+ {nota:`<b>O macro só filtra o viés.</b> Ele não dá entrada. Com juros abrindo forte, você não procura compra; mas o macro favorável não transforma uma correção ruim em trade.`},
+ {q:{id:'manha-1',tipo:'mc',en:'DI abrindo forte, petróleo subindo e DXY em alta. Qual o viés mais coerente pro índice?',
+  ops:['Compra','Venda ou neutro: não procurar compra','Neutro sempre, macro não importa','Compra, porque petróleo sobe Petrobras'],c:1,
+  ex:'Petróleo pressiona inflação, inflação pressiona juros, juro abrindo pesa no índice. Petrobras sobe, mas o resto do índice sente o custo do dinheiro.'}},
+ {q:{id:'manha-2',tipo:'mc',en:'O que a cadeia macro te dá?',ops:['O ponto de entrada','O alvo','O viés do dia (o lado a procurar)','O tamanho do stop'],c:2,
+  ex:'Lugar e alvo vêm do mapa de liquidez e do macro gráfico; gatilho e stop vêm do micro. A cadeia macro só diz para que lado olhar.'}},
+ {q:{id:'manha-3',tipo:'aberta',en:'Explique com suas palavras por que se começa pelos juros (DI) e não pelo índice.',
+  gab:'O DI é o custo do dinheiro no tempo e afeta o valor de todos os ativos de risco e o câmbio; juros abrindo derrubam o valor presente das ações e favorecem queda, fechando favorecem alta. Ele vem antes porque é causa, o índice é consequência.'}},
+]},
+{id:'liquidez',t:'Liquidez: onde estão os stops',b:[
+ {h:`<p class="lead">O stop de quem está comprado é uma ordem de venda. É esse combustível que o preço vai buscar. <b>Se você não sabe onde está a liquidez, você é a liquidez.</b></p>`},
+ {tab:{cab:['Nível','O que é'],l:[['PDH / PDL','máxima e mínima do dia anterior'],['PWH / PWL','máxima e mínima da semana anterior'],['PMH / PML','máxima e mínima do mês anterior'],['EQH / EQL','topos ou fundos nivelados: o dobro de stops'],['BSL / SSL','liquidez acima dos topos / abaixo dos fundos'],['POC / VAH / VAL','preço mais negociado e área de valor do dia anterior']]}},
+ {h:`<p>Acima das máximas (PDH, PWH, PMH, EQH) ficam os stops de <b>quem vendeu</b>. Abaixo das mínimas ficam os stops de <b>quem comprou</b>.</p>
+ <h3>Só existem dois tipos de trade</h3>
+ <ol><li><b>Ir buscar a liquidez</b>: o preço está abaixo do PDH e você compra para buscá-lo.</li>
+ <li><b>Depois da captura</b>: o preço varre o PDH, volta, faz pullback, e você vende.</li></ol>
+ <p>Os níveis servem como <b>lugar de entrada</b> depois de varridos e como <b>alvo</b> antes de varridos. Sem captura de liquidez, não tem entrada.</p>`},
+ {q:{id:'liq-1',tipo:'mc',en:'No gráfico, onde está a maior concentração de stops de quem está vendido?',graf:'liquidez',
+  ops:['Abaixo do PDL','Acima dos dois topos nivelados (EQH) e do PDH','No meio da faixa','Em qualquer lugar, stops são aleatórios'],c:1,
+  ex:'Vendido coloca stop acima de topo. Dois topos no mesmo preço juntam o dobro de stops, e o PDH logo acima soma mais. É um ímã de preço.'}},
+ {q:{id:'liq-2',tipo:'mc',en:'Por que o preço que varre um nível de liquidez muitas vezes acelera na direção da varrida?',
+  ops:['Porque o nível é suporte','Porque cada stop de vendido acionado é uma ordem nova de compra','Porque os robôs compram no rompimento','Não acelera, sempre volta'],c:1,
+  ex:'Stop de vendido = ordem de compra a mercado. Quando o preço chega lá, essas ordens entram juntas. É por isso que, depois de varrer, o preço pode seguir ou virar — depende de quem absorveu essas ordens.'}},
+ {q:{id:'liq-3',tipo:'mc',en:'O preço abriu abaixo do PDL de ontem. O PDL ainda é liquidez de quem comprou, abaixo do preço?',
+  ops:['Sim, sempre','Não: o nível já está acima do preço; só é liquidez a varrer o que está do lado certo do preço na abertura','Sim, mas só até 10h','Depende do volume'],c:1,
+  ex:'Essa foi uma das correções do backtest: um nível só conta como liquidez abaixo se estiver abaixo do preço na abertura. Um PDL que já ficou acima vira referência de cima.'}},
+]},
+{id:'tempos',t:'Macro dá o alvo, micro dá o stop',b:[
+ {tab:{cab:['Função','Tempo gráfico'],l:[['Lugar e alvo (macro)','60 min e 15 min'],['Gatilho e stop (micro)','5 min e 2 min (Profit)']]}},
+ {h:`<p>A assimetria do 3:1 nasce daqui: <b>o alvo é do macro, o stop é do micro.</b> Stop pequeno, alvo de swing.</p>
+ <p>Quando o preço chega na zona do macro, há dois jeitos de entrar:</p>
+ <ol><li><b>No toque</b>: ordem limitada no order block. Só com contexto muito claro e correção de qualidade.</li>
+ <li><b>Esperando o evento</b>: CHoCH no micro e depois pullback. Lugar sozinho não basta.</li></ol>
+ <p>No exemplo do ouro, o professor não entrou no toque porque a zona do macro era larga demais: o stop ficaria caro. Esperou o CHoCH no 5 min, e o stop encolheu para caber no 3R.</p>`},
+ {q:{id:'tempo-1',tipo:'num',en:'No micro, o stop técnico é de 220 pontos. O PDH (alvo do macro) está 800 pontos acima da entrada. Qual o RR do trade?',val:3.64,tol:0.06,un:'R',
+  ex:'800 ÷ 220 ≈ 3,6R. Passa no mínimo de 3R.'}},
+ {q:{id:'tempo-2',tipo:'mc',en:'O preço chegou na zona do 60 min, mas o stop no toque seria de 480 pontos. O que fazer?',
+  ops:['Entrar no toque com 1 contrato','Desistir do dia','Esperar CHoCH no 5 ou 2 min e entrar no pullback, com stop do micro','Entrar no toque e mover o stop depois'],c:2,
+  ex:'É exatamente o caso do ouro na aula 2: zona boa, stop caro. O evento no micro dá um stop técnico menor e mantém o alvo do macro.'}},
+]},
+{id:'estrutura',t:'Estrutura: BOS, CHoCH e indução',b:[
+ {h:`<ul><li><b>BOS</b> (quebra de estrutura): rompimento a favor da tendência. Continuidade.</li>
+ <li><b>CHoCH</b> (mudança de caráter): rompe o topo ou fundo <b>que originou o último BOS</b>. Reversão.</li></ul>
+ <p>O detalhe que mais derruba gente: o CHoCH de alta não é romper qualquer topo menor. É romper o topo de onde saiu a perna que fez o último fundo mais baixo.</p>`},
+ {q:{id:'est-1',tipo:'mc',en:'Tendência de baixa. A perna que saiu do topo em 68 fez o último BOS de baixa (rompeu o fundo anterior). Depois o preço repicou até 60 e voltou. Qual nível precisa ser rompido para ter CHoCH de alta?',graf:'choch',
+  ops:['60, o último topo','68, o topo que originou o último BOS','80','Qualquer um, desde que feche acima'],c:1,
+  ex:'O 60 é um topo interno do pullback; romper ele é só ruído ou indução. A proteção da tendência de baixa está no topo que originou o último BOS: 68.'}},
+ {h:`<h3>Indução (IDM)</h3><p>Antes do movimento de verdade, o preço finge que vai e pega os stops de quem entrou cedo. A aula 2 transformou isso em regra: <b>antes de abrir posição, já precisa ter havido uma indução.</b> Sem indução, quem está sendo induzido é você.</p>
+ <ul><li><b>Fake BOS</b>: o preço rompe o topo, quem comprou o rompimento entra, e o preço volta e stopa essa turma. Sua compra entra embaixo, depois disso.</li>
+ <li><b>Fake CHoCH</b>: o preço perde o fundo como se fosse virar, quem vendeu a quebra é stopado. Sua compra entra depois.</li></ul>
+ <p>O professor usou a imagem do cambista: operar sem indução prévia é comprar o ingresso falso.</p>`},
+ {q:{id:'est-2',tipo:'mc',en:'Você quer comprar. Qual sequência mostra uma indução a seu favor?',
+  ops:['O preço sobe direto sem nunca romper nada','O preço rompe o topo, volta para baixo dele e stopa quem comprou o rompimento; depois você compra no OB embaixo','O preço rompe o topo e você compra o rompimento','O preço fica lateral'],c:1,
+  ex:'Isso é um fake BOS: quem comprou o rompimento virou liquidez. Você entra depois que eles foram tirados do jogo.'}},
+ {q:{id:'est-3',tipo:'aberta',en:'Qual a diferença entre um CHoCH verdadeiro e uma indução? Como você distinguiria os dois na hora?',
+  gab:'O CHoCH verdadeiro rompe o topo/fundo que originou o último BOS, com impulso de 5 pernas ou barra de força e volume crescente, e tem contexto (liquidez varrida antes, zona do macro). A indução rompe sem contexto, em 3 pernas, com volume decrescente ou só de pavio, e é revertida — serve pra stopar quem entrou no rompimento.'}},
+]},
+{id:'choch',t:'CHoCH válido × CHoCH falso',b:[
+ {tab:{cab:['','Válido','Falso (armadilha)'],l:[['Impulso que rompe','5 pernas, ou barra de força muito grande','3 pernas (ABC), sobreposto, rompe só de pavio'],['O que rompe','o topo/fundo que originou o BOS','não rompe esse nível'],['Volume na quebra','crescente','decrescente: invalida mesmo com 5 pernas'],['Pullback','corretivo (ABC, flat, reacumulação) até o discount','impulsivo, em 5 pernas sem A e B'],['O que fazer','entra no pullback','não opera o pullback']]}},
+ {q:{id:'choch-1',tipo:'mc',en:'O preço rompeu o topo de origem com 5 pernas, mas o volume foi caindo a cada perna. O CHoCH vale?',
+  ops:['Vale, 5 pernas basta','Não vale: volume decrescente invalida','Vale se o pullback for flat','Vale no 60 min, não no 5'],c:1,
+  ex:'Volume é esforço, preço é resultado. Rompimento com esforço caindo é rompimento sem combustível. Regra dura do teu operacional.'}},
+ {q:{id:'choch-2',tipo:'mc',en:'O rompimento foi um ABC sobreposto, que passou do topo só de pavio. Como você trata?',
+  ops:['CHoCH válido','Provável armadilha: não compra o pullback','BOS','Entra no toque do OB'],c:1,
+  ex:'3 pernas sobrepostas rompendo só de pavio é a cara do CHoCH falso. Pode até ser oportunidade no sentido contrário.'}},
+]},
+{id:'discount',t:'Premium e discount',b:[
+ {h:`<p>O Fibonacci vai no <b>impulso inteiro</b>, do fundo ao topo.</p>
+ <ul><li><b>Compra só no discount</b>: retração de pelo menos 50%, de preferência entre <b>61,8% e 79%</b>.</li>
+ <li><b>Venda só no premium</b>: acima de 50% do movimento de baixa.</li>
+ <li>Correção rasa (38,2% a 50%) só vale em flat ou reacumulação.</li></ul>
+ <p>Na compra, a retração se mede a partir do topo: <span class="mono">entrada = topo − fib × (topo − fundo)</span>. É a mesma conta que o backtest usa.</p>`},
+ {q:{id:'disc-1',tipo:'num',en:'Impulso de alta no WIN de 120.000 a 121.000. Qual o preço da retração de 61,8%?',val:120382,tol:2,un:'pts',
+  ex:'121.000 − 0,618 × 1.000 = 120.382.'}},
+ {q:{id:'disc-2',tipo:'num',en:'No mesmo impulso, qual o preço da retração de 79%?',val:120210,tol:2,un:'pts',ex:'121.000 − 0,79 × 1.000 = 120.210.'}},
+ {q:{id:'disc-3',tipo:'mc',en:'O pullback parou em 38,2% num zigzag simples. Compra?',
+  ops:['Sim, é discount','Não: abaixo de 50% só vale em flat ou reacumulação','Sim, se tiver OB','Só no 60 min'],c:1,
+  ex:'38,2% ainda é premium para quem compra. A exceção é a correção que já tem cara de correção complexa (flat, reacumulação).'}},
+]},
+{id:'correcao',t:'Correção com cara de correção',b:[
+ {h:`<p class="lead">Esta é a tese da aula 2: order block, FVG, CHoCH e Fibonacci qualquer curso ensina. O que separa trade de stop é a <b>qualidade da correção</b>.</p>
+ <p><b>Impulso tem que ter cara de impulso; correção tem que ter cara de correção.</b></p>`},
+ {fig:['linhaReta','Chegada em linha reta: o preço volta direto até o OB, sem repique. Não pega no toque.']},
+ {fig:['relutancia','Chegada com relutância: canal descendente, pernas se sobrepondo, cada queda menor. Quem empurrava está cansando.']},
+ {q:{id:'cor-1',tipo:'mc',en:'O preço volta até o order block em linha reta, com barras grandes e sem repique. Tudo mais está certo (discount, liquidez). O que fazer?',graf:'linhaReta',
+  ops:['Ordem limitada no OB','Não pegar no toque: esperar CHoCH no micro e pullback','Vender, a tendência virou','Comprar a mercado'],c:1,
+  ex:'Linha reta é característica de impulso, não de correção. O exemplo de abertura da aula é exatamente esse: compra no OB, o preço atravessa e stopa.'}},
+ {q:{id:'cor-2',tipo:'aberta',en:'Por que uma chegada "com relutância" (canal, cunha, pernas sobrepostas) é melhor para comprar do que uma chegada em linha reta?',
+  gab:'Porque mostra fraqueza de quem está empurrando contra: cada perna de queda é menor e sobreposta, o vendedor perde força; já a linha reta mostra força vendedora (característica de impulso), e comprar contra impulso costuma dar stop.'}},
+]},
+{id:'flat',t:'Flat: a correção preferida',b:[
+ {h:`<p>Depois de um impulso de 5 ondas, a correção mais comum é o <b>zigzag</b>: um ABC simples. A <b>flat</b> é um ABC lateral, com estrutura <b>3-3-5</b>:</p>
+ <ul><li><b>A</b>: um ABC contra o movimento.</li><li><b>B</b>: um ABC a favor, que volta até perto do topo de origem.</li><li><b>C</b>: desce em <b>5 subondas</b> até o order block. É no fim da C que você compra.</li></ul>`},
+ {fig:['zigzag','Zigzag: só um topo de referência acima. Pouca liquidez de alvo.']},
+ {fig:['flatReg','Flat regular: a B nivela o topo de origem (vira EQH), a C rompe o fundo da A.']},
+ {tab:{cab:['Tipo','B × topo de origem','C × fundo da A','Opera?'],l:[['Regular','nivela (EQH)','rompe','sim'],['Irregular','rompe (fake BOS)','rompe (fake CHoCH)','sim, a melhor'],['Interrompida','rompe','não chega, para num OB','às vezes'],['Clássica','nivela','nivela','nunca']]}},
+ {h:`<h3>Por que a irregular é a melhor</h3><p>Ela engana os dois lados. A B rompe o topo: quem comprou o rompimento (fake BOS) é stopado na C. A C rompe o fundo da A: quem vendeu a quebra (fake CHoCH) é stopado na volta. Você compra depois das duas induções.</p>
+ <h3>Por que a clássica nunca</h3><p>Topos nivelados em cima e fundos nivelados embaixo: liquidez dos dois lados. O preço não tem motivo para escolher a sua direção.</p>`},
+ {q:{id:'flat-1',tipo:'mc',en:'Classifique esta correção.',graf:'flatIrr',ops:['Zigzag','Flat regular','Flat irregular','Flat clássica'],c:2,
+  ex:'A B passou acima do topo de origem e a C perdeu o fundo da A. Rompe em cima e rompe embaixo: irregular.'}},
+ {q:{id:'flat-2',tipo:'mc',en:'E esta?',graf:'flatCla',ops:['Flat regular','Flat interrompida','Flat clássica','Flat irregular'],c:2,
+  ex:'A B nivelou o topo e a C nivelou o fundo da A. Liquidez dos dois lados: clássica, não opera.'}},
+ {q:{id:'flat-3',tipo:'mc',en:'E esta?',graf:'flatInt',ops:['Flat interrompida','Flat irregular','Zigzag','Flat regular'],c:0,
+  ex:'A B rompeu o topo, mas a C parou antes do fundo da A. Interrompida: mais rara, opera às vezes.'}},
+ {q:{id:'flat-4',tipo:'mc',en:'E esta?',graf:'flatReg',ops:['Flat clássica','Flat regular','Flat irregular','Zigzag'],c:1,
+  ex:'A B nivelou o topo de origem (EQH) e a C rompeu o fundo da A. Regular.'}},
+ {q:{id:'flat-5',tipo:'mc',en:'Por que, para comprar, uma flat regular é melhor que um zigzag?',
+  ops:['Porque é mais rápida','Porque deixa dois topos nivelados acima: mais liquidez como alvo','Porque tem 5 ondas','Não é melhor'],c:1,
+  ex:'Teoria de Dow aplicada à liquidez: um topo tem stops, dois topos nivelados têm o dobro. Mais combustível para o preço ir buscar.'}},
+ {h:`<h3>Cuidado com as 5 pernas</h3><p>O teu operacional diz "pullback em 5 pernas: não compra". E a C da flat desce em 5 subondas. Não é contradição:</p>
+ <ul><li>Um pullback que desce em <b>5 pernas direto, sem A e B antes</b>, é impulso contra você.</li><li>A <b>C de uma flat</b> tem 5 subondas por definição, e vem depois de A e B.</li></ul>`},
+ {fig:['flatIrrSub','Flat irregular com as 5 subondas da C até o OB. O tracejado é a continuação esperada.']},
+ {q:{id:'flat-6',tipo:'mc',en:'O pullback desceu em 5 pernas, mas antes houve um ABC para baixo e um ABC para cima que nivelou o topo. Compra no fim das 5?',
+  ops:['Não: 5 pernas no pullback é sempre impulso','Sim: é a C de uma flat, e as 5 subondas são esperadas','Só se for 79%','Só no 60 min'],c:1,
+  ex:'O que manda é haver A e B antes. Sem isso, as 5 pernas seriam impulso; com isso, são a perna C.'}},
+ {q:{id:'flat-7',tipo:'mc',en:'As 5 subondas da C saíram feias: pernas muito sobrepostas, sem ritmo. A ordem limitada está no OB. O que o professor fez num caso igual (NZDJPY)?',
+  ops:['Manteve a ordem','Cancelou a ordem','Dobrou a mão','Moveu a ordem para 50%'],c:1,
+  ex:'Ele cancelou. O trade até andou depois, mas a regra dele vale mais que um trade: correção sem cara de correção não entra.'}},
+ {q:{id:'flat-8',tipo:'aberta',en:'Explique, como se fosse pra um amigo, por que a flat irregular "induz os dois lados".',
+  gab:'Na onda B o preço rompe o topo de origem, parecendo continuação: quem compra esse rompimento (fake BOS) é stopado quando a C desce. Na C o preço perde o fundo da A, parecendo reversão: quem vende essa quebra (fake CHoCH) é stopado quando o preço volta a subir. Os dois lados viram liquidez, e a compra entra depois disso.'}},
+]},
+{id:'canal',t:'Canais e a regra dos 5 toques',b:[
+ {h:`<p>Quando a correção vem em forma de canal, bandeira ou cunha, há uma regra simples: <b>só pega no toque, ou no CHoCH, com pelo menos 5 toques</b> somados nas bordas.</p>
+ <p>Cada toque em cima acumula liquidez; cada toque embaixo é uma captura. Com 4 toques, o preço tende a fazer mais um embaixo, e a compra antecipada vira stop.</p>`},
+ {q:{id:'canal-1',tipo:'mc',en:'O canal tem 3 toques nas bordas e o preço está chegando ao OB na borda de baixo. Compra no toque?',graf:'canal',
+  ops:['Sim, tem OB','Não: ainda faltam toques; espera pelo menos o 5º','Sim, se o volume subir','Vende, o canal é de baixa'],c:1,
+  ex:'Com 3 toques o canal ainda está jovem. A compra válida vem a partir do 5º toque.'}},
+ {q:{id:'canal-2',tipo:'num',en:'Quantos toques, no mínimo, o canal de continuação precisa ter para você aceitar o trade?',val:5,tol:0,un:'toques',ex:'Cinco, somando as duas bordas.'}},
+]},
+{id:'volume',t:'Volume: esforço × resultado',b:[
+ {h:`<p>Volume é esforço, preço é resultado.</p>
+ <ul><li>Para comprar o pullback de um CHoCH de alta, o volume <b>tinha que subir na quebra</b>.</li>
+ <li>Barra bonita sem volume não é entrada.</li>
+ <li><b>Clímax</b>, um pico de volume no fim de uma tendência, marca exaustão, não força.</li>
+ <li><b>Absorção sem agressão</b> não é gatilho. <b>Absorção seguida de agressão</b> é.</li></ul>
+ <p>A <b>POC</b> (preço de maior volume) do impulso anterior, medida com volume profile de range fixo, é uma confluência forte quando cai na mesma zona do OB e do discount. Foi assim no exemplo do DAX.</p>`},
+ {q:{id:'vol-1',tipo:'mc',en:'Fim de uma longa queda: aparece a maior barra de volume do mês, o preço fecha perto da mínima. Isso é…',
+  ops:['Força vendedora, vender mais','Possível clímax: exaustão, não força','Irrelevante','Sinal de compra imediata'],c:1,
+  ex:'Pico de volume no fim de tendência costuma ser a última leva de quem desiste. Ainda não é entrada: falta o evento (CHoCH) e a correção.'}},
+ {q:{id:'vol-2',tipo:'mc',en:'No OB, o fluxo mostra muita compra passiva absorvendo as vendas, mas o preço não sobe. É gatilho?',
+  ops:['Sim, absorção é gatilho','Não: absorção sem agressão não é gatilho; espera a agressão compradora','Sim, se for 61,8%','Só para venda'],c:1,
+  ex:'Absorção mostra que alguém está segurando. A agressão mostra que esse alguém resolveu andar com o preço. Só a segunda é gatilho.'}},
+]},
+{id:'wyckoff',t:'Laterais e Wyckoff',b:[
+ {h:`<p>O mercado anda em ciclos: acumulação → alta → reacumulação → alta → distribuição → baixa → redistribuição → baixa. A lateral é a <b>causa</b>, a tendência é o <b>efeito</b>.</p>`},
+ {tab:{cab:['Fase','Função'],l:[['A','parar a tendência anterior (SC, AR, ST)'],['B','manipular os extremos'],['C','captura total de liquidez: spring (acumulação) ou UTAD (distribuição)'],['D e E','expansão e o pullback que você opera']]}},
+ {fig:['wyckoff','Acumulação: SC (clímax de venda), AR (repique), ST (teste), spring abaixo do fundo, CHoCH para cima e o LPS (pullback).']},
+ {h:`<ul><li><b>Acumulação e distribuição</b> revertem a tendência. <b>Reacumulação e redistribuição</b> continuam.</li>
+ <li>Nem toda lateral é flat. Lateral longa com fases é Wyckoff; flat é uma correção de 3 ondas.</li>
+ <li><b>Erro clássico:</b> vender o rompimento do fundo da lateral. Quase sempre é o spring.</li></ul>`},
+ {q:{id:'wy-1',tipo:'mc',en:'Neste gráfico, qual é o melhor trade?',graf:'wyckoff',
+  ops:['Comprar no SC','Vender quando o preço perde o fundo da lateral','Comprar o LPS: pullback depois do spring e do CHoCH para cima','Comprar no AR'],c:2,
+  ex:'Spring com volume, CHoCH para cima e pullback. É o trade de começo de tendência — e por isso não faz sentido realizar em 1:1.'}},
+ {q:{id:'wy-2',tipo:'mc',en:'Qual a função da fase C?',ops:['Parar a tendência','Captura total de liquidez','Expandir','Manipular só o topo'],c:1,
+  ex:'É o último grande movimento de enganação: varre tudo de um lado antes da expansão.'}},
+]},
+{id:'ondas',t:'Ondas: impulso em 5, correção em 3',b:[
+ {fig:['ondas','Impulso de 5 ondas e correção ABC. O tracejado é a continuação.']},
+ {tab:{cab:['Onda','O que acontece'],l:[['1','sai da lateral e ninguém acredita'],['2','o medo volta'],['3','todo mundo vê; nunca é a mais curta'],['4','respiro e realização; topos nivelados costumam aparecer aqui'],['5','euforia; quem compra aqui compra esticado']]}},
+ {h:`<p>A contagem também serve para <b>não</b> operar: ela mostra onde o trade seria stop. Essa parte você marca à mão; o rr-quant só aproxima contando pernas.</p>`},
+ {q:{id:'onda-1',tipo:'mc',en:'Qual onda nunca é a mais curta do impulso?',ops:['1','3','5','2'],c:1,ex:'Regra do Elliott: a 3 nunca é a mais curta entre 1, 3 e 5.'}},
+ {q:{id:'onda-2',tipo:'mc',en:'O preço acabou de fazer a onda 5, com euforia e volume caindo. Comprar o rompimento?',
+  ops:['Sim, tendência forte','Não: é a onda em que se compra esticado; o próximo movimento esperado é uma correção ABC','Sim, com alvo de 3R','Depende do DI'],c:1,
+  ex:'Depois de 5 vem 3. Comprar o fim da 5 é virar a liquidez de quem vai vender a correção.'}},
+]},
+{id:'setup',t:'O setup central, do começo ao fim',b:[
+ {tab:{cab:['#','Confluência','Obrigatória?'],l:[['1','Captura de liquidez antes (PDL, PWL, PML, EQL, fundo de lateral)','sim'],['2','CHoCH válido no micro (5 pernas, rompe o fundo de origem)','sim'],['3','Volume crescente na quebra','sim'],['4','Pullback corretivo, nunca em linha reta','sim'],['4a','Indução antes da entrada (fake BOS ou fake CHoCH)','sim'],['4b','Correção do tipo flat irregular ou regular','soma'],['5','Discount: 61,8% a 79%','sim'],['6','Order block ou FVG na zona','sim'],['7','POC ou área de valor na mesma zona','soma'],['8','Fluxo alinhado (CHoCH também no macro)','soma'],['9','Viés da manhã a favor','soma'],['—','Alvo na próxima liquidez do macro a ≥ 3R','sim']]}},
+ {nota:`<b>Um fator contra invalida.</b> Não importa quantas confluências somem. Confluência é acúmulo de fatores apontando para o mesmo lado; um fator apontando para o outro lado quebra a tese.`},
+ {h:`<h3>Caso guiado</h3><p>Manhã de terça. Viés da manhã: neutro para alta (DI estável, EWZ positivo). O WIN abriu acima do PWL. Acompanhe no gráfico de 5 min:</p>`},
+ {fig:['caso','O preço varre o PWL, sobe em 5 pernas com volume crescente e faz uma correção lateral até a zona de OB + 61,8%. O PDH está bem acima.']},
+ {q:{id:'caso-1',tipo:'mc',en:'Passo 1. A queda até o PWL e a varrida abaixo dele cumprem qual item do checklist?',
+  ops:['Discount','Captura de liquidez','Indução','Fluxo alinhado'],c:1,ex:'Varrer o PWL tira os stops de quem estava comprado. É o item 1.'}},
+ {q:{id:'caso-2',tipo:'mc',en:'Passo 2. A subida saiu da varrida em 5 pernas, rompeu o topo que originou a última queda e o volume subiu. O que você tem?',
+  ops:['BOS de baixa','CHoCH válido de alta','Indução','Nada ainda'],c:1,ex:'5 pernas, rompe o topo de origem, volume crescente: itens 2 e 3.'}},
+ {q:{id:'caso-3',tipo:'mc',en:'Passo 3. O pullback desceu em ABC, repicou em ABC passando um pouco acima do topo e agora desce em 5 subondas até o OB, abaixo do fundo da A. Que correção é essa?',
+  ops:['Zigzag','Flat regular','Flat irregular','Linha reta'],c:2,ex:'B rompeu o topo, C perdeu o fundo da A: irregular, com dupla indução. Itens 4, 4a e 4b.'}},
+ {q:{id:'caso-4',tipo:'num',en:'Passo 4. A entrada fica no OB, o stop técnico 240 pontos abaixo e o PDH 1.050 pontos acima da entrada. Qual o RR?',val:4.375,tol:0.06,un:'R',
+  ex:'1.050 ÷ 240 ≈ 4,4R. Passa no mínimo de 3R.'}},
+ {q:{id:'caso-5',tipo:'mc',en:'Passo 5. Tudo certo, mas faltam 4 minutos para a divulgação do payroll e você já fez 1 stop hoje. Qual a decisão?',
+  ops:['Entra, o setup é completo','Não deixa ordem pendurada antes da notícia; reavalia depois da divulgação se o contexto seguir valendo','Entra com o dobro para recuperar','Desiste do dia'],c:1,
+  ex:'A agenda vira aviso de horário: notícia forte nos próximos minutos está na lista de "quando não operar". O stop anterior não proíbe, o limite é 2.'}},
+]},
+{id:'naoopera',t:'Quando não operar',b:[
+ {h:`<ul><li>Já foram 2 stops no dia, ou já foram 3 trades.</li><li>Não houve captura de liquidez.</li><li>O alvo até a próxima liquidez do macro não chega a 3R.</li><li>O stop técnico passa de 300 pontos.</li><li>O volume não confirma a quebra.</li><li>Notícia forte nos próximos minutos.</li><li>Fora da janela em que você consegue prestar atenção total (cerca de 1 hora).</li><li>O preço chegou à zona em linha reta e ainda não houve CHoCH no micro.</li><li>A correção é uma flat clássica.</li><li>Canal de continuação com menos de 5 toques.</li></ul>
+ <p>Responda rápido: opera ou não?</p>`},
+ {q:{id:'nao-1',tipo:'mc',en:'CHoCH lindo, volume subindo, flat irregular no OB, mas nenhuma liquidez foi varrida antes.',ops:['Opera','Não opera'],c:1,ex:'Sem captura de liquidez, não tem entrada. É obrigatório.'}},
+ {q:{id:'nao-2',tipo:'mc',en:'Tudo certo, stop de 260 pts e alvo no PWH a 820 pts.',ops:['Opera','Não opera'],c:0,ex:'820 ÷ 260 ≈ 3,15R. Passa.'}},
+ {q:{id:'nao-3',tipo:'mc',en:'Tudo certo, stop de 280 pts e o PDH a 700 pts da entrada.',ops:['Opera','Não opera'],c:1,ex:'700 ÷ 280 = 2,5R. Abaixo de 3R o setup não existe.'}},
+ {q:{id:'nao-4',tipo:'mc',en:'Setup completo às 14h40; você opera bem até umas 11h e está cansado.',ops:['Opera','Não opera'],c:1,ex:'Fora da janela de atenção total. O setup não some do histórico; você só não precisa dele.'}},
+ {q:{id:'nao-5',tipo:'mc',en:'Correção com a B nivelando o topo e a C nivelando o fundo da A, OB na zona.',ops:['Opera','Não opera'],c:1,ex:'Flat clássica: liquidez dos dois lados. Não opera.'}},
+]},
+{id:'teste',t:'Antes de confiar: o que o backtest precisa dizer',b:[
+ {h:`<p class="lead">O curso mostrou exemplos que deram certo e afirmou que "de 10 trades vocês acertam 6 ou 7". Nenhum número veio com amostra, período ou custos.</p>
+ <p>O rr-quant existe para responder isso com o histórico do WIN, fora da amostra, com custo e sem olhar o futuro. As perguntas abertas:</p>
+ <ol><li>O setup central tem expectativa positiva em R?</li><li>Ele é melhor que entradas aleatórias com o mesmo stop e alvo?</li><li>Cada confluência ajuda, ou só reduz o número de trades?</li><li>O filtro macro da manhã melhora o resultado?</li><li>O 3R é alcançável no WIN com stop de 200 a 300?</li><li>O tipo de correção muda o resultado? Flat irregular é mesmo a melhor?</li></ol>`},
+ {h:`<h3>O que o histórico disse até agora</h3><p>Primeira rodada do backtest com a classificação de correção. WIN de 2 min, 307 pregões, regras completas, custo de 10 pontos por trade. A correção é classificada no momento do toque, só com o que já estava confirmado.</p>`},
+ {tab:{cab:['Correção','Trades','Acerto','Média R','Total R'],l:[['Linha reta','39','23%','+0,43','+16,6'],['Zigzag','14','50%','+0,39','+5,5'],['Flat irregular','9','33%','−0,44','−3,9'],['Flat regular','5','40%','+0,50','+2,5'],['Flat interrompida','1','—','+3,23','—'],['Flat clássica','1','—','+1,61','—']]}},
+ {nota:`<b>Isto é descrição, não conclusão.</b> Cada tipo de flat tem entre 1 e 9 trades: um único alvo de 3R muda a média inteira. No 5 min foram só 14 trades no total, todos stop. Por enquanto o histórico não confirma que a flat irregular seja a melhor, nem que a linha reta deva ser evitada. Também não prova o contrário.`},
+ {q:{id:'teste-0',tipo:'mc',en:'A "linha reta", que a aula manda evitar, rendeu +0,43R por trade em 39 trades; a flat irregular, −0,44R em 9. O que fazer com o operacional?',
+  ops:['Trocar a regra: passar a comprar a linha reta','Tirar a flat do operacional','Não mudar nada ainda: amostra pequena; acumular mais histórico (outros contratos, outros tempos gráficos) antes de decidir','Ignorar o backtest, ele não entende de correção'],c:2,
+  ex:'Com 9 trades, dois alvos a mais ou a menos invertem o sinal. A decisão honesta é seguir medindo. O que já dá para dizer: nada no histórico, por ora, sustenta "a flat irregular é a melhor de todas".'}},
+ {q:{id:'teste-1',tipo:'mc',en:'O professor mostrou 6 trades com flat irregular, todos no alvo. O que isso prova?',
+  ops:['Que a flat irregular acerta 100%','Que o padrão pode funcionar, mas sem a amostra inteira (incluindo os que não foram mostrados) não dá para medir a taxa de acerto','Que funciona em forex mas não no WIN','Nada, padrão gráfico não funciona'],c:1,
+  ex:'Exemplo escolhido depois do fato é viés de sobrevivência. A pergunta certa é: de todas as vezes que a flat irregular apareceu, quantas foram ao alvo?'}},
+ {q:{id:'teste-2',tipo:'num',en:'O backtest cobra 10 pontos de custo por trade. Com stop de 200 pontos, quanto isso pesa em R por trade?',val:0.05,tol:0.002,un:'R',
+  ex:'10 ÷ 200 = 0,05R. Parece pouco, mas num setup que rende +0,2R por trade é um quarto do ganho.'}},
+ {q:{id:'teste-3',tipo:'aberta',en:'Que resultado do backtest faria você tirar a regra "só flat irregular ou regular" do operacional?',
+  gab:'Se, com amostra razoável e custos, os trades filtrados por flat irregular/regular não tiverem média em R melhor que os demais (zigzag, linha reta) ou que o setup sem esse filtro, ou se o filtro só reduzir o número de trades sem melhorar a expectativa, a regra sai ou vira "soma" sem peso. Também se a diferença sumir fora da amostra.'}},
+]},
+];
+
+// ------------------------------------------------------------------ estado e persistência
+const CHAVE='treino-operacional-v1';
+let estado={}, historico=[];
+try{const d=JSON.parse(localStorage.getItem(CHAVE)||'{}')||{};estado=d.respostas||{};historico=d.historico||[]}catch(e){}
+let armazenamentoOk=true;
+function avisoArmazenamento(){const a=document.querySelector('.aviso');if(a&&!armazenamentoOk)a.textContent='Este navegador não deixou salvar as respostas. Exporte antes de fechar a página.'}
+const salvarLocal=()=>{try{localStorage.setItem(CHAVE,JSON.stringify({respostas:estado,historico}));armazenamentoOk=true}catch(e){armazenamentoOk=false;avisoArmazenamento()}};
+function salvar(qid,rec){
+  estado[qid]=rec;
+  const i=historico.findIndex(h=>h.qid===qid&&h.em===rec.em);
+  if(i>=0)historico[i]={...rec};else historico.push({...rec});
+  salvarLocal(); placar();
+}
+function apagar(qid){ delete estado[qid]; salvarLocal(); placar(); }
+const TODAS=[];MODS.forEach(m=>m.b.forEach(b=>{if(b.q){b.q.mod=m.id;TODAS.push(b.q)}}));
+function placar(){
+  const r=TODAS.filter(q=>estado[q.id]);
+  document.getElementById('pl-resp').textContent=r.length;
+  document.getElementById('pl-cert').textContent=r.filter(q=>estado[q.id].acertou===true).length;
+  document.getElementById('pl-tot').textContent=TODAS.length;
+  desenharNav();
+}
+
+// ------------------------------------------------------------------ navegação
+let atual=MODS[0].id;
+function progresso(m){const qs=m.b.filter(b=>b.q).map(b=>b.q);return [qs.filter(q=>estado[q.id]).length,qs.length]}
+function desenharNav(){
+  const nav=document.getElementById('nav'), sel=document.getElementById('sel');
+  const tot=TODAS.length, feitas=TODAS.filter(q=>estado[q.id]).length;
+  let h=`<div class="barra" aria-hidden="true"><i style="width:${tot?feitas/tot*100:0}%"></i></div>`;
+  let o='';
+  MODS.concat([{id:'erros',t:'Revisar meus erros',b:[]}]).forEach((m,i)=>{
+    const [f,t]=progresso(m), n=m.id==='erros'?'↺':String(i).padStart(2,'0');
+    const pg=m.id==='erros'?String(TODAS.filter(q=>estado[q.id]&&estado[q.id].acertou===false).length):(t?`${f}/${t}`:'');
+    h+=`<button data-m="${m.id}" class="${m.id===atual?'on':''}" aria-current="${m.id===atual?'page':'false'}"><span class="n">${n}</span><span>${m.t}</span><span class="pg ${t&&f===t?'ok':''}">${pg}</span></button>`;
+    o+=`<option value="${m.id}" ${m.id===atual?'selected':''}>${n} · ${m.t} ${pg?'('+pg+')':''}</option>`;
+  });
+  nav.innerHTML=h; sel.innerHTML=o;
+  nav.querySelectorAll('button').forEach(b=>b.onclick=()=>ir(b.dataset.m));
+}
+document.getElementById('sel').onchange=e=>ir(e.target.value);
+function ir(id){atual=id;if(location.hash!=='#'+id)history.replaceState(null,'','#'+id);render();window.scrollTo({top:0})}
+window.addEventListener('hashchange',()=>{const id=location.hash.slice(1);if(id&&id!==atual){atual=id;render()}});
+
+// ------------------------------------------------------------------ render
+function render(){
+  const art=document.getElementById('art');
+  if(atual==='erros'){art.innerHTML=renderErros();ligar(art);desenharNav();return}
+  const i=MODS.findIndex(m=>m.id===atual), m=MODS[i]||MODS[0];
+  let h=`<div class="eyebrow">Módulo ${String(i).padStart(2,'0')} de ${String(MODS.length-1).padStart(2,'0')}</div><h2>${m.t}</h2>`;
+  m.b.forEach(b=>{
+    if(b.h)h+=b.h;
+    if(b.nota)h+=`<div class="nota">${b.nota}</div>`;
+    if(b.tab)h+=`<div class="tab"><table><thead><tr>${b.tab.cab.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${b.tab.l.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+    if(b.fig)h+=fig(b.fig[0],b.fig[1]);
+    if(b.q)h+=`<div class="q" id="q-${b.q.id}" data-q="${b.q.id}"></div>`;
+  });
+  const ant=MODS[i-1], prox=MODS[i+1];
+  h+=`<div class="rodape">${ant?`<button class="btn sec" data-ir="${ant.id}">← ${ant.t}</button>`:'<span></span>'}${prox?`<button class="btn" data-ir="${prox.id}">${prox.t} →</button>`:`<button class="btn" data-ir="erros">Revisar meus erros →</button>`}</div>`;
+  art.innerHTML=h; ligar(art);
+  art.querySelectorAll('.q').forEach(el=>renderQ(el,TODAS.find(q=>q.id===el.dataset.q)));
+  desenharNav();
+}
+function ligar(root){root.querySelectorAll('[data-ir]').forEach(b=>b.onclick=()=>ir(b.dataset.ir))}
+
+const TIPO={mc:'Escolha',num:'Conta',aberta:'Aberta'};
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function renderQ(el,q){
+  const r=estado[q.id];
+  const tipo=q.graf?'Leitura de gráfico':TIPO[q.tipo];
+  let h=`<div class="qh"><span>${tipo}</span>${r?`<span>${r.acertou===true?'✓ certa':r.acertou===false?'✗ errada':'◐ parcial'}</span>`:''}</div><div class="en">${q.en}</div>`;
+  if(q.graf)h+=fig(q.graf);
+  if(q.tipo==='mc'){
+    h+=`<div class="ops">${q.ops.map((o,k)=>{
+      let c='';if(r){c=k===q.c?'certa':(String(k)===r.resposta?'errada':'esmaecida')}
+      return `<button data-k="${k}" class="${c}" ${r?'disabled':''}>${o}</button>`}).join('')}</div>`;
+  }else if(q.tipo==='num'){
+    h+=`<div class="linha-in"><input id="in-${q.id}" inputmode="decimal" aria-label="Sua resposta" value="${r?esc(r.resposta):''}" ${r?'disabled':''}><span class="mono">${q.un}</span>${r?'':`<button class="btn" data-conf>Conferir</button>`}</div>`;
+  }else{
+    h+=`<textarea id="in-${q.id}" aria-label="Sua resposta" ${r?'disabled':''} placeholder="Escreva com as suas palavras…">${r?esc(r.resposta):''}</textarea>${r?'':`<div style="margin-top:8px"><button class="btn" data-env>Ver a referência e me avaliar</button></div>`}`;
+  }
+  if(r)h+=feedback(q,r);
+  el.innerHTML=h;
+  el.querySelectorAll('.ops button:not([disabled])').forEach(b=>b.onclick=()=>{
+    const k=+b.dataset.k;salvar(q.id,{qid:q.id,mod:q.mod,tipo:q.tipo,pergunta:q.en,resposta:String(k),texto:q.ops[k],acertou:k===q.c,em:new Date().toISOString()});renderQ(el,q)});
+  const conf=el.querySelector('[data-conf]');
+  if(conf){const inp=el.querySelector('input');const go=()=>{
+    const v=parseFloat(inp.value.replace(/\./g,'').replace(',','.'));if(isNaN(v)){inp.focus();return}
+    const ok=Math.abs(v-q.val)<=q.tol;salvar(q.id,{qid:q.id,mod:q.mod,tipo:'num',pergunta:q.en,resposta:inp.value,acertou:ok,em:new Date().toISOString()});renderQ(el,q)};
+    conf.onclick=go;inp.onkeydown=e=>{if(e.key==='Enter')go()}}
+  const env=el.querySelector('[data-env]');
+  if(env)env.onclick=()=>corrigirAberta(el,q);
+  el.querySelectorAll('[data-auto]').forEach(b=>b.onclick=()=>{
+    const v=b.dataset.auto;const rec={...estado[q.id],acertou:v==='1'?true:v==='0'?false:null,comentario:'Autoavaliação.'};delete rec.pendente;salvar(q.id,rec);renderQ(el,q)});
+  const rf=el.querySelector('.refazer');if(rf)rf.onclick=()=>{apagar(q.id);renderQ(el,q)};
+}
+function numFmt(v){return Number(v).toLocaleString('pt-BR',{maximumFractionDigits:3})}
+function feedback(q,r){
+  let cls,tit,txt;
+  if(q.tipo==='aberta'){
+    if(r.pendente){
+      return `<div class="fb meio"><b>Compare com a resposta de referência</b>${q.gab}<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px"><button class="btn" data-auto="1">Acertei</button><button class="btn sec" data-auto="m">Acertei em parte</button><button class="btn sec" data-auto="0">Errei</button></div></div>`;
+    }
+    cls=r.acertou===true?'ok':r.acertou===false?'no':'meio';
+    tit=r.acertou===true?'Certo':r.acertou===false?'Ainda não':'Em parte';
+    txt=`${esc(r.comentario||'')}<div style="margin-top:8px;color:var(--muted);font-size:.9rem"><b style="display:inline">Referência:</b> ${q.gab}</div>`;
+  }else{
+    cls=r.acertou?'ok':'no';tit=r.acertou?'Certo':'Não';
+    txt=(q.tipo==='num'&&!r.acertou?`Resposta: ${numFmt(q.val)} ${q.un}. `:'')+q.ex;
+  }
+  return `<div class="fb ${cls}"><b>${tit}</b>${txt}</div><button class="refazer">Responder de novo</button>`;
+}
+function corrigirAberta(el,q){
+  const ta=el.querySelector('textarea');
+  const resp=ta.value.trim(); if(resp.length<8){ta.focus();return}
+  salvar(q.id,{qid:q.id,mod:q.mod,tipo:'aberta',pergunta:q.en,resposta:resp,em:new Date().toISOString(),acertou:null,pendente:true});
+  renderQ(el,q);
+}
+function renderErros(){
+  const errs=TODAS.filter(q=>estado[q.id]&&estado[q.id].acertou===false);
+  const pend=TODAS.filter(q=>!estado[q.id]);
+  let h=`<div class="eyebrow">Revisão</div><h2>Revisar meus erros</h2>`;
+  if(!errs.length)h+=`<p class="lead">${TODAS.some(q=>estado[q.id])?'Nenhum erro registrado até aqui.':'Você ainda não respondeu nada. Comece pelo módulo 00.'}</p>`;
+  else{h+=`<p class="lead">${errs.length} pergunta${errs.length>1?'s':''} para rever. Clique para ir ao módulo, ou responda de novo aqui embaixo.</p><ul class="lista-erros">`;
+    errs.forEach(q=>{const m=MODS.find(x=>x.id===q.mod);h+=`<li><button class="refazer" style="font-size:.95rem" data-ir="${m.id}">${m.t}</button><br>${q.en}</li>`});h+='</ul>'}
+  h+=`<p class="mono" style="color:var(--muted)">${pend.length} pergunta${pend.length===1?'':'s'} ainda sem resposta.</p>`;
+  h+=`<div class="rodape"><button class="btn sec" data-ir="${MODS[0].id}">← Voltar ao início</button><span></span></div>`;
+  return h;
+}
+
+// ------------------------------------------------------------------ boot
+const h0=location.hash.slice(1); if(h0&&(MODS.some(m=>m.id===h0)||h0==='erros'))atual=h0;
+render(); placar();
+avisoArmazenamento();
+
+// ------------------------------------------------------------------ exportar / importar
+function baixar(nome,texto,tipo){
+  const url=URL.createObjectURL(new Blob([texto],{type:tipo}));
+  const a=document.createElement('a');a.href=url;a.download=nome;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(url);a.remove()},500);
+}
+const hoje=()=>new Date().toISOString().slice(0,10);
+function csvCampo(v){v=v==null?'':String(v);return /[";\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
+document.getElementById('bt-csv').onclick=()=>{
+  const cab=['data','modulo','pergunta_id','tipo','pergunta','resposta','resultado','comentario'];
+  const linhas=historico.slice().sort((a,b)=>a.em<b.em?-1:1).map(r=>{
+    const m=MODS.find(x=>x.id===r.mod);
+    const res=r.pendente?'sem avaliação':r.acertou===true?'certa':r.acertou===false?'errada':'parcial';
+    return [r.em,m?m.t:r.mod,r.qid,r.tipo,r.pergunta,r.texto||r.resposta,res,r.comentario||''].map(csvCampo).join(';');
+  });
+  baixar(`treino-respostas-${hoje()}.csv`,'﻿'+[cab.join(';')].concat(linhas).join('\n'),'text/csv;charset=utf-8');
+};
+document.getElementById('bt-json').onclick=()=>{
+  baixar(`treino-backup-${hoje()}.json`,JSON.stringify({versao:1,exportado_em:new Date().toISOString(),respostas:estado,historico},null,2),'application/json');
+};
+const inImp=document.getElementById('in-imp');
+document.getElementById('bt-imp').onclick=()=>inImp.click();
+inImp.onchange=async()=>{
+  const f=inImp.files[0];if(!f)return;
+  const aviso=document.querySelector('.aviso');
+  try{
+    const d=JSON.parse(await f.text());
+    if(!d||typeof d.respostas!=='object'||!Array.isArray(d.historico))throw new Error('formato');
+    const chave=h=>h.qid+'|'+h.em, vistos=new Set(historico.map(chave));
+    d.historico.forEach(h=>{if(h&&h.qid&&!vistos.has(chave(h))){historico.push(h);vistos.add(chave(h))}});
+    Object.entries(d.respostas).forEach(([k,v])=>{if(v&&(!estado[k]||String(v.em)>String(estado[k].em)))estado[k]=v});
+    salvarLocal();render();placar();
+    aviso.textContent=`Backup importado: ${d.historico.length} tentativas lidas e somadas às que já estavam aqui.`;
+  }catch(e){
+    aviso.textContent='Não consegui ler esse arquivo. Use um backup JSON gerado por esta página.';
+  }
+  inImp.value='';
+};
+
+</script>
+</body>
+</html>
