@@ -1,11 +1,15 @@
 """Dados do próprio WIN para o Plano do dia.
 
-Duas fontes, na ordem de preferência:
+Três fontes, na ordem de preferência:
 
-1. **Profit local** (`profit.py`): barras de 2 min do WINFUT (série contínua do Profit),
+1. **Negócios da B3** (`b3negocios.py`): barras de 1 min montadas a partir do arquivo
+   público de negócios de cada pregão e guardadas em `data/win/1min/`. Funciona no PC e
+   no GitHub Actions, sem programa aberto nem login. Começa em 15/10/2026 (a B3 só guarda
+   um mês); para semana e mês anteriores ao começo, completa com o diário da brapi.
+2. **Profit local** (`profit.py`): barras de 2 min do WINFUT (série contínua do Profit),
    reamostradas para 15 min, 1h e diário. É a fonte completa, mas só existe no PC onde
    o Profit roda e só está em dia se o Profit tiver ficado aberto no último pregão.
-2. **brapi.dev** (`/api/v2/futures`): diário do contrato vigente, sem token para WIN.
+3. **brapi.dev** (`/api/v2/futures`): diário do contrato vigente, sem token para WIN.
    Serve no GitHub Actions. Não tem intraday nem abertura (o campo `open` vem nulo).
 
 Contrato vigente = o de maior volume no último pregão (é para lá que o mercado rola
@@ -21,7 +25,7 @@ from dataclasses import dataclass
 
 import pandas as pd
 
-from . import profit
+from . import b3negocios, profit
 
 BRAPI = "https://brapi.dev/api/v2/futures"
 _AGG = {"Open": "first", "High": "max", "Low": "min", "Close": "last"}
@@ -89,6 +93,21 @@ def carregar(antes_de: dt.date) -> DadosWin | None:
     if brapi is not None:
         d = brapi[brapi.index.date < antes_de]
         ultimo = d.index[-1].date() if len(d) else None
+
+    b3 = b3negocios.carregar()
+    if b3 is not None:
+        b3 = b3[b3.index.date < antes_de].rename(columns={
+            "abertura": "Open", "maxima": "High", "minima": "Low", "fechamento": "Close"})
+        if len(b3):   # só o contrato vigente: emendar vencimentos cria degrau falso no gráfico
+            b3 = b3[b3.contrato == b3.contrato.iloc[-1]]
+        fim = b3.index[-1].date() if len(b3) else None
+        if fim is not None and (ultimo is None or fim >= ultimo):
+            diario = _reamostrar(b3[["Open", "High", "Low", "Close"]], "D")
+            if brapi is not None:
+                diario = diario.combine_first(brapi)
+            return DadosWin(f"WIN dos negócios da B3 (barras de 1 min até {fim:%d/%m}, "
+                            f"contrato {b3.contrato.iloc[-1]})", diario,
+                            _reamostrar(b3, "15min"), _reamostrar(b3, "1h"))
 
     m2 = _profit_ohlc(2)
     if m2 is not None:

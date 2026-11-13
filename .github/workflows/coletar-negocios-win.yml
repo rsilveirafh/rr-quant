@@ -1,0 +1,42 @@
+name: Coletar negocios do WIN (B3)
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 22:30 BRT (UTC-3), depois que a B3 publica o arquivo do pregão.
+    - cron: "30 1 * * 2-6"
+    # 07:30 BRT, repescagem antes do dashboard das 08:00.
+    - cron: "30 10 * * 1-5"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: coletar-negocios-win
+  cancel-in-progress: false
+
+jobs:
+  coletar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependências
+        run: python -m pip install .
+
+      - name: Baixar os pregões que faltam (a B3 guarda cerca de um mês)
+        run: python -m rrquant.b3negocios --dias 35
+
+      - name: Versionar barras de 1 min
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/win/1min
+          git diff --cached --quiet || git commit -m "Registra negocios do WIN (1 min)"
+          git pull --rebase
+          git push

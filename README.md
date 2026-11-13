@@ -29,9 +29,10 @@ Roda com dados de fechamento, sem tempo real e sem chave de API paga.
 
 Os níveis vêm do próprio WIN sempre que possível (`win.py`):
 
-1. **Profit local**, quando ele tem o último pregão: barras de 2 min do WINFUT, reamostradas para 15 min, 1h e diário. Tudo sai do WIN, inclusive EQH, EQL e zonas.
-2. **brapi.dev** (gratuita para WIN, sem token): diário do contrato vigente, o de maior volume. Dá PDH a PML; EQH, EQL e zonas ficam com o Ibovespa intraday, marcados como `Ibov` e medidos a partir do preço do próprio Ibov.
-3. **Ibovespa à vista** como reserva. É um mapa aproximado: das 11h às 16h os dois andam juntos (correlação de 0,99 por hora), mas o WIN negocia das 9h às 18h e em quase metade dos dias faz a máxima ou a mínima fora do horário do à vista.
+1. **Negócios da B3**: um job diário baixa o arquivo público com todos os negócios do pregão, monta barras de 1 min e guarda em `data/win/1min/`. A B3 só mantém cerca de um mês, então o histórico do WIN vai se acumulando no repositório. Funciona online, sem programa aberto nem login.
+2. **Profit local**, quando ele tem o último pregão: barras de 2 min do WINFUT, reamostradas para 15 min, 1h e diário. Tudo sai do WIN, inclusive EQH, EQL e zonas.
+3. **brapi.dev** (gratuita para WIN, sem token): diário do contrato vigente, o de maior volume. Dá PDH a PML; EQH, EQL e zonas ficam com o Ibovespa intraday, marcados como `Ibov` e medidos a partir do preço do próprio Ibov.
+4. **Ibovespa à vista** como reserva. É um mapa aproximado: das 11h às 16h os dois andam juntos (correlação de 0,99 por hora), mas o WIN negocia das 9h às 18h e em quase metade dos dias faz a máxima ou a mínima fora do horário do à vista.
 
 **Placar do Ibovespa.** Estimativa da probabilidade de o índice fechar em alta no próximo pregão, por regressão logística sobre as variáveis que antecedem a abertura: Ásia e Europa do dia, fechamento da véspera em Nova York e DXY, todas defasadas para não usar informação que ainda não existia no momento da decisão.
 
@@ -62,7 +63,8 @@ rr-quant/
 │   ├── porques.py     base conceitual do "por que isso importa"
 │   ├── smc.py         estrutura, order blocks, FVG e liquidez
 │   ├── plano.py       plano do dia (níveis, viés, checklist)
-│   ├── win.py         dados do WIN (Profit local ou brapi)
+│   ├── win.py         dados do WIN (B3, Profit local ou brapi)
+│   ├── b3negocios.py  coletor dos negócios do WIN publicados pela B3
 │   ├── charts.py      gráficos SVG inline
 │   ├── report.py      montagem do HTML
 │   └── cli.py         entrada
