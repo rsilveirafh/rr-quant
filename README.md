@@ -27,7 +27,11 @@ Roda com dados de fechamento, sem tempo real e sem chave de API paga.
 - order blocks e FVGs em aberto mais próximos;
 - checklist do setup central, quando não operar e a conta de risco por contrato.
 
-Os níveis são do Ibovespa à vista, porque o WIN não tem fonte pública gratuita. O preço absoluto não bate com o futuro, mas a distância em pontos sim.
+Os níveis vêm do próprio WIN sempre que possível (`win.py`):
+
+1. **Profit local**, quando ele tem o último pregão: barras de 2 min do WINFUT, reamostradas para 15 min, 1h e diário. Tudo sai do WIN, inclusive EQH, EQL e zonas.
+2. **brapi.dev** (gratuita para WIN, sem token): diário do contrato vigente, o de maior volume. Dá PDH a PML; EQH, EQL e zonas ficam com o Ibovespa intraday, marcados como `Ibov` e medidos a partir do preço do próprio Ibov.
+3. **Ibovespa à vista** como reserva. É um mapa aproximado: das 11h às 16h os dois andam juntos (correlação de 0,99 por hora), mas o WIN negocia das 9h às 18h e em quase metade dos dias faz a máxima ou a mínima fora do horário do à vista.
 
 **Placar do Ibovespa.** Estimativa da probabilidade de o índice fechar em alta no próximo pregão, por regressão logística sobre as variáveis que antecedem a abertura: Ásia e Europa do dia, fechamento da véspera em Nova York e DXY, todas defasadas para não usar informação que ainda não existia no momento da decisão.
 
@@ -58,6 +62,7 @@ rr-quant/
 │   ├── porques.py     base conceitual do "por que isso importa"
 │   ├── smc.py         estrutura, order blocks, FVG e liquidez
 │   ├── plano.py       plano do dia (níveis, viés, checklist)
+│   ├── win.py         dados do WIN (Profit local ou brapi)
 │   ├── charts.py      gráficos SVG inline
 │   ├── report.py      montagem do HTML
 │   └── cli.py         entrada

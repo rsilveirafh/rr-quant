@@ -5,9 +5,14 @@ Junta numa tela só o que o operacional pede antes da abertura do WIN:
 - seção 3: mapa de liquidez (PDH/PDL, PWH/PWL, PMH/PML, EQH/EQL) e zonas do macro;
 - seções 1, 10 e 11: risco, checklist do setup central e quando não operar.
 
-Os níveis vêm do Ibovespa à vista (yfinance), não do WIN. O futuro negocia com um
-prêmio sobre o índice, então o preço absoluto não bate, mas a DISTÂNCIA em pontos até
-cada nível é praticamente a mesma. Por isso a tela mostra distância e R, não só preço.
+Fonte dos níveis (win.py): o próprio WIN sempre que possível, do Profit local (completo) ou
+da brapi (só diário). Sem nenhum dos dois, cai para o Ibovespa à vista do yfinance.
+
+Por que o Ibovespa é só reserva: o futuro negocia com um prêmio sobre o índice (mediana mensal entre 250 e 3.000 pontos em 2024-2026), então o preço
+absoluto não bate. Das 11h às 16h os dois andam juntos (correlação de 0,99 por hora). Mas o WIN
+negocia das 9h às 18h, e em quase metade dos dias a máxima ou a mínima dele sai fora do horário
+do à vista: a distância até PDH/PDL difere em até ~190 pontos na metade dos dias e em até
+~650 pontos em 90% deles. É um mapa aproximado; o preço de verdade se marca no Profit.
 
 Nada de look-ahead: os níveis usam só pregões completos anteriores a hoje.
 """
@@ -36,7 +41,8 @@ class Nivel:
     nome: str        # 'PDH', 'PWL', 'EQH 1h'...
     preco: float
     descricao: str
-    dist: float = 0.0  # preço do nível - último fechamento (pontos)
+    dist: float = 0.0  # preço do nível - último fechamento da mesma série (pontos)
+    escala: str = ""   # vazio = a série dos níveis do dia; 'Ibov' = veio de outra série
 
 
 @dataclass
@@ -73,6 +79,9 @@ class Plano:
     vies: str = "neutro"       # 'compra' | 'venda' | 'neutro'
     vies_motivo: str = ""
     agenda: list[Evento] = field(default_factory=list)
+    fonte_diario: str = "Ibovespa à vista (yfinance)"
+    fonte_intra: str = "Ibovespa à vista (yfinance)"
+    mesma_escala: bool = True
 
 
 # ---------------------------------------------------------------- níveis
@@ -80,6 +89,7 @@ class Plano:
 def niveis_anteriores(diario: pd.DataFrame, hoje: dt.date) -> tuple[list[Nivel], str, float] | None:
     """PDH/PDL, PWH/PWL e PMH/PML válidos para o pregão de `hoje`, só com barras anteriores."""
     d = diario[diario.index.date < hoje]
+    d = d[(d.High > 0) & (d.Low > 0) & (d.Close > 0)]   # o yfinance às vezes devolve barra zerada
     if len(d) < 25:
         return None
     ult = d.iloc[-1]
@@ -138,10 +148,12 @@ def _zonas_smc(smc, rotulo: str, preco: float) -> list[Zona]:
 
 def _sem_duplicata(niveis: list[Nivel], tol: float = 40.0) -> list[Nivel]:
     """EQH/EQL a menos de `tol` pontos de um nível já listado somem. Os de dia, semana e
-    mês têm prioridade; entre EQH/EQL, fica o do tempo gráfico maior (vem antes na lista)."""
+    mês têm prioridade; entre EQH/EQL, fica o do tempo gráfico maior (vem antes na lista).
+    Só compara níveis da mesma série: preço do WIN e do Ibov não se comparam."""
     out = [n for n in niveis if " " not in n.nome]
     for n in niveis:
-        if " " in n.nome and all(abs(n.preco - f.preco) > tol for f in out):
+        if " " in n.nome and all(abs(n.preco - f.preco) > tol for f in out
+                                 if f.escala == n.escala):
             out.append(n)
     return out
 
@@ -253,7 +265,12 @@ def agenda(hoje: dt.date, dias: int = 7, arquivo: Path = AGENDA) -> list[Evento]
 # ---------------------------------------------------------------- montagem
 
 def montar(diario: pd.DataFrame | None, idx: dict, placar=None, dec=None,
-           smc_1h=None, smc_15m=None, hoje: dt.date | None = None) -> Plano | None:
+           smc_1h=None, smc_15m=None, hoje: dt.date | None = None,
+           fonte_diario: str = "Ibovespa à vista (yfinance)",
+           fonte_intra: str | None = None) -> Plano | None:
+    """`fonte_intra` diferente de `fonte_diario` quer dizer que EQH/EQL e zonas vêm de
+    outra série (o Ibov, quando o WIN só tem diário): cada item mede a distância a partir
+    do preço da própria série, e a tabela marca a origem."""
     hoje = hoje or dia_do_plano(dt.datetime.now(TZ))
     if diario is None:
         return None
@@ -261,13 +278,26 @@ def montar(diario: pd.DataFrame | None, idx: dict, placar=None, dec=None,
     if base is None:
         return None
     niveis, ref, preco = base
-    niveis = _sem_duplicata(niveis + _liquidez_smc(smc_1h, "1h") + _liquidez_smc(smc_15m, "15 min"))
+    fonte_intra = fonte_intra or fonte_diario
+    mesma = fonte_intra == fonte_diario
+    preco_intra = preco
+    for s in (smc_15m, smc_1h):
+        if not mesma and s is not None:
+            barras = s.df[s.df.index.date < hoje]
+            if len(barras):
+                preco_intra = float(barras["Close"].iloc[-1])
+                break
+    extras = _liquidez_smc(smc_1h, "1h") + _liquidez_smc(smc_15m, "15 min")
+    for n in extras:
+        n.escala = "" if mesma else "Ibov"
+        n.dist = n.preco - preco_intra
     for n in niveis:
         n.dist = n.preco - preco
+    niveis = _sem_duplicata(niveis + extras)
     niveis = [n for n in niveis if " " not in n.nome or abs(n.dist) <= ALCANCE]
-    niveis.sort(key=lambda n: -n.preco)
+    niveis.sort(key=lambda n: -n.dist)
 
-    zonas = [z for z in _zonas_smc(smc_1h, "1h", preco) + _zonas_smc(smc_15m, "15 min", preco)
+    zonas = [z for z in _zonas_smc(smc_1h, "1h", preco_intra) + _zonas_smc(smc_15m, "15 min", preco_intra)
              if abs(z.dist) <= ALCANCE]
     acima = sorted((z for z in zonas if z.lado == "acima"), key=lambda z: z.dist)[:3]
     abaixo = sorted((z for z in zonas if z.lado == "abaixo"), key=lambda z: -z.dist)[:3]
@@ -275,7 +305,7 @@ def montar(diario: pd.DataFrame | None, idx: dict, placar=None, dec=None,
 
     sinais, vies, motivo = leitura_manha(idx, placar, dec)
     return Plano(hoje, ref, preco, niveis, acima[::-1] + dentro + abaixo, sinais, vies, motivo,
-                 agenda(hoje))
+                 agenda(hoje), fonte_diario, fonte_intra, mesma)
 
 
 # ---------------------------------------------------------------- HTML
@@ -321,25 +351,49 @@ NAO_OPERAR = [
 ]
 
 
+def _tag(escala: str) -> str:
+    return f' <span class="pl-tag">{html.escape(escala)}</span>' if escala else ""
+
+
+def _nota_fonte(p: Plano) -> str:
+    """Rodapé do mapa: de onde vieram os níveis e o quanto confiar neles."""
+    if p.fonte_diario.startswith("WIN") and p.mesma_escala:
+        return (f"Tudo do próprio WIN: {html.escape(p.fonte_diario)}. EQH e EQL são topos e fundos "
+                "nivelados do 1h e do 15 min que ainda não foram varridos.")
+    if p.fonte_diario.startswith("WIN"):
+        return (f"PDH a PML do próprio WIN: {html.escape(p.fonte_diario)}, pregão completo, das 9h "
+                "às 18h. Os itens marcados <b>Ibov</b> (EQH, EQL e as zonas abaixo) vêm do Ibovespa "
+                "à vista de 15 min e 1h, porque essa fonte do WIN não tem intraday: preço na escala "
+                "do Ibov e distância medida a partir do fechamento do Ibov. A distância é próxima da "
+                "do WIN no meio do pregão, mas o à vista não vê o que o WIN faz das 9h às 10h e "
+                "depois das 17h. Para tudo do WIN, deixe o Profit aberto no pregão e gere o "
+                "dashboard no PC.")
+    return ("Níveis do <b>Ibovespa à vista</b>, um mapa aproximado: nenhuma fonte do WIN respondeu "
+            "nesta execução. O WIN negocia com prêmio e fica aberto das 9h às 18h, então em quase "
+            "metade dos dias a máxima ou a mínima dele sai fora do horário do à vista. A distância "
+            "até PDH/PDL difere em até ~190 pontos na metade dos dias e em até ~650 em 90% deles "
+            "(2024-2026). Antes de operar, marque os níveis do WIN no Profit.")
+
+
 def _tabela_niveis(p: Plano) -> str:
     linhas = []
     marcou_preco = False
     for n in p.niveis:
-        if not marcou_preco and n.preco < p.preco:
+        if not marcou_preco and n.dist < 0:
             linhas.append(f'<tr class="pl-agora"><td>agora</td><td>{_preco(p.preco)}</td>'
                           f'<td colspan="3">fechamento de {p.pregao_ref}</td></tr>')
             marcou_preco = True
         alvo = abs(n.dist) >= ALVO_MIN_R * STOP_MAX
         cls = "up" if n.dist > 0 else "down"
         linhas.append(
-            f'<tr><td><b>{html.escape(n.nome)}</b></td><td>{_preco(n.preco)}</td>'
+            f'<tr><td><b>{html.escape(n.nome)}</b>{_tag(n.escala)}</td><td>{_preco(n.preco)}</td>'
             f'<td class="{cls}">{_pts(n.dist)}</td>'
             f'<td>{_r(n.dist)}{" ✓" if alvo else ""}</td>'
             f'<td class="hint">{html.escape(n.descricao)}</td></tr>')
     if not marcou_preco:
         linhas.append(f'<tr class="pl-agora"><td>agora</td><td>{_preco(p.preco)}</td>'
                       f'<td colspan="3">fechamento de {p.pregao_ref}</td></tr>')
-    return ("<div class=\"pl-rolo\"><table class=\"pl-tab\"><thead><tr><th>nível</th><th>preço (Ibov)</th>"
+    return ("<div class=\"pl-rolo\"><table class=\"pl-tab\"><thead><tr><th>nível</th><th>preço</th>"
             "<th>distância</th><th>em R*</th><th>o que é</th></tr></thead><tbody>"
             + "".join(linhas) + "</tbody></table></div>")
 
@@ -354,7 +408,7 @@ def _tabela_zonas(p: Plano) -> str:
         linhas.append(f'<tr><td>{html.escape(z.rotulo)}</td>'
                       f'<td>{_preco(z.base)} a {_preco(z.topo)}</td>'
                       f'<td class="{cls}">{dist}</td><td>{z.lado}</td></tr>')
-    return ("<div class=\"pl-rolo\"><table class=\"pl-tab\"><thead><tr><th>zona</th><th>faixa (Ibov)</th>"
+    return ("<div class=\"pl-rolo\"><table class=\"pl-tab\"><thead><tr><th>zona</th><th>faixa</th>"
             "<th>distância</th><th>lado</th></tr></thead><tbody>"
             + "".join(linhas) + "</tbody></table></div>")
 
@@ -425,13 +479,11 @@ def plano_html(p: Plano | None) -> str:
   <h3>Mapa de liquidez <span class="hint">(seção 3: alvo antes de varrido, lugar de entrada depois)</span></h3>
   {_tabela_niveis(p)}
   <p class="hint">* Distância dividida por um stop de {STOP_MAX} pontos; ✓ = dá alvo de 3R com esse
-    stop. Níveis do <b>Ibovespa à vista</b>: o WIN negocia com prêmio, então o preço não bate, mas a
-    distância em pontos é praticamente a mesma. Para o preço exato, marque no Profit.
-    EQH e EQL vêm dos topos e fundos nivelados do 1h e do 15 min que ainda não foram varridos.</p>
+    stop. {_nota_fonte(p)}</p>
 </div>
 
 <div class="sub-card">
-  <h3>Zonas do macro mais próximas <span class="hint">(order blocks e FVGs em aberto, 1h e 15 min)</span></h3>
+  <h3>Zonas do macro mais próximas <span class="hint">(order blocks e FVGs em aberto, 1h e 15 min)</span>{"" if p.mesma_escala else _tag("Ibov")}</h3>
   {_tabela_zonas(p)}
   <p class="hint">Zona é lugar, não gatilho: só lugar não basta, precisa de evento (CHoCH no micro
     e pullback). Ver a aba SMC para os gráficos.</p>
@@ -523,3 +575,21 @@ PLANO_CSS = """
     color:var(--ink); border:1px solid var(--line); border-radius:6px; }
   @media (max-width:600px) { .pl-tab td:last-child, .pl-tab th:last-child { display:none; } }
 """
+
+
+def montar_do_dia(ohlc_ibov, idx: dict, placar=None, dec=None, smc_1h_ibov=None,
+                  smc_15m_ibov=None) -> Plano | None:
+    """Escolhe a fonte (win.py) e monta o plano. Com intraday do WIN (Profit), o motor SMC
+    roda no próprio WIN; sem ele, EQH/EQL e zonas vêm do Ibov e a tela marca isso."""
+    from . import smc as smc_mod, win as win_mod
+
+    ibov = "Ibovespa à vista (yfinance)"
+    dados = win_mod.carregar(dia_do_plano(dt.datetime.now(TZ)))
+    if dados is None:
+        return montar(ohlc_ibov, idx, placar, dec, smc_1h_ibov, smc_15m_ibov, fonte_diario=ibov)
+    if dados.m15 is None:
+        return montar(dados.diario, idx, placar, dec, smc_1h_ibov, smc_15m_ibov,
+                      fonte_diario=dados.rotulo, fonte_intra=ibov)
+    s15 = smc_mod.analisar("WIN", "WIN", dados.m15.iloc[-2400:], timeframe="15 min", forca=4, n_render=160)
+    s1h = smc_mod.analisar("WIN", "WIN", dados.h1.iloc[-700:], timeframe="1 hora", forca=3, n_render=120)
+    return montar(dados.diario, idx, placar, dec, s1h, s15, fonte_diario=dados.rotulo)
