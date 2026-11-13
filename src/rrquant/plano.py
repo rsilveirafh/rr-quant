@@ -22,6 +22,8 @@ from __future__ import annotations
 import csv
 import datetime as dt
 import html
+import json
+import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -237,9 +239,36 @@ def _primeira_sexta(d: dt.date) -> dt.date:
     return p + dt.timedelta(days=(4 - p.weekday()) % 7)
 
 
+IBGE_CALENDARIO = "https://servicodados.ibge.gov.br/api/v3/calendario/?qtd=100&de={de:%m-%d-%Y}&ate={ate:%m-%d-%Y}"
+IBGE_PRODUTOS = {9256: "IPCA (inflação oficial do mês)", 9260: "IPCA-15 (prévia da inflação)"}
+
+
+def agenda_ibge(hoje: dt.date, dias: int = 7) -> list[tuple[dt.date, str, str]]:
+    """IPCA e IPCA-15 pelo calendário de divulgações do IBGE. Sem rede, volta vazio.
+    A API traz 12:00 em todas as datas (horário genérico); o IBGE divulga às 9h de Brasília."""
+    url = IBGE_CALENDARIO.format(de=hoje, ate=hoje + dt.timedelta(days=dias))
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "rr-quant"})
+        with urllib.request.urlopen(req, timeout=20) as r:
+            itens = json.load(r).get("items", [])
+    except (OSError, ValueError):
+        return []
+    out = []
+    for i in itens:
+        nome = IBGE_PRODUTOS.get(i.get("produto_id"))
+        try:
+            d = dt.datetime.strptime(i["data_divulgacao"][:10], "%d/%m/%Y").date()
+        except (KeyError, ValueError):
+            continue
+        if nome:
+            out.append((d, "09:00", f"{nome}, IBGE"))
+    return out
+
+
 def agenda(hoje: dt.date, dias: int = 7, arquivo: Path = AGENDA) -> list[Evento]:
-    """Eventos de hoje até `dias` à frente: o arquivo editado à mão mais o payroll por regra."""
-    itens: list[tuple[dt.date, str, str]] = []
+    """Eventos de hoje até `dias` à frente: o arquivo editado à mão, o payroll por regra e
+    IPCA/IPCA-15 pelo calendário do IBGE."""
+    itens: list[tuple[dt.date, str, str]] = agenda_ibge(hoje, dias)
     if arquivo.exists():
         linhas = [l for l in arquivo.read_text(encoding="utf-8").splitlines()
                   if l.strip() and not l.startswith("#")]
@@ -434,8 +463,8 @@ def plano_html(p: Plano | None) -> str:
                   f'<span class="hint">(hoje e próximos 7 dias)</span></h3><ul class="pl-lista">{ag}</ul>'
                   + ('<p class="pl-nota">Tem evento hoje: cuidado com ordem pendurada perto do horário.</p>'
                      if tem_hoje else "")
-                  + '<p class="hint">Copom e FOMC vêm de <code>data/agenda.csv</code>; '
-                    'CPI, IPCA e outros entram à mão no mesmo arquivo.</p></div>')
+                  + '<p class="hint">Copom, FOMC e CPI vêm de <code>data/agenda.csv</code>; '
+                    'IPCA e IPCA-15, do calendário do IBGE; payroll, por regra.</p></div>')
     else:
         agenda = ('<div class="sub-card"><h3>Agenda</h3><p class="hint">Nada marcado para os '
                   'próximos 7 dias em <code>data/agenda.csv</code>.</p></div>')

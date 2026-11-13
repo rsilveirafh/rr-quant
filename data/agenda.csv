@@ -18,3 +18,9 @@ data;hora_brt;evento
 2026-09-16;15:00;FOMC: decisão dos juros nos EUA
 2026-10-28;15:00;FOMC: decisão dos juros nos EUA
 2026-12-09;16:00;FOMC: decisão dos juros nos EUA
+# CPI (EUA): calendário oficial do BLS, 8h30 de Nova York. Abril a setembro de 2027 ainda por conferir.
+2026-12-10;10:30;CPI: inflação ao consumidor nos EUA (novembro)
+2027-01-13;10:30;CPI: inflação ao consumidor nos EUA (dezembro)
+2027-02-11;10:30;CPI: inflação ao consumidor nos EUA (janeiro)
+2027-03-10;10:30;CPI: inflação ao consumidor nos EUA (fevereiro)
+2027-04-13;09:30;CPI: inflação ao consumidor nos EUA (março)
