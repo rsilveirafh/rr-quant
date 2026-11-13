@@ -82,6 +82,7 @@ class Plano:
     fonte_diario: str = "Ibovespa à vista (yfinance)"
     fonte_intra: str = "Ibovespa à vista (yfinance)"
     mesma_escala: bool = True
+    smc_15m: object = None     # análise SMC de 15 min, desenhada como gráfico do quadro geral
 
 
 # ---------------------------------------------------------------- níveis
@@ -305,7 +306,7 @@ def montar(diario: pd.DataFrame | None, idx: dict, placar=None, dec=None,
 
     sinais, vies, motivo = leitura_manha(idx, placar, dec)
     return Plano(hoje, ref, preco, niveis, acima[::-1] + dentro + abaixo, sinais, vies, motivo,
-                 agenda(hoje), fonte_diario, fonte_intra, mesma)
+                 agenda(hoje), fonte_diario, fonte_intra, mesma, smc_15m)
 
 
 # ---------------------------------------------------------------- HTML
@@ -445,6 +446,19 @@ def plano_html(p: Plano | None) -> str:
         f'{"obrigatória" if o else "soma"}</span></label></li>' for k, t, o in CHECKLIST)
     nao = "".join(f"<li>{html.escape(t)}</li>" for t in NAO_OPERAR)
 
+    grafico = ""
+    s = p.smc_15m
+    if s is not None and len(s.df) > 1:
+        from .charts import candles
+        dias = len(set(s.df.index.date))
+        grafico = f"""<div class="sub-card pl-grafico">
+  <h3>Quadro geral em 15 min <span class="hint">({html.escape(p.fonte_intra)} · últimos {dias}
+    pregões até {s.df.index[-1]:%d/%m %H:%M})</span></h3>
+  {candles(s)}
+  <p class="hint">Swings, BOS/CHoCH, order blocks e liquidez (EQH/EQL) do motor SMC, os mesmos
+    que alimentam a tabela de níveis abaixo. Só barras anteriores ao pregão do plano.</p>
+</div>"""
+
     return f"""<section class="tab plano" id="tab-plano">
 <div class="pl-topo">
   <div class="sub-card pl-vies {cls_vies}">
@@ -456,6 +470,8 @@ def plano_html(p: Plano | None) -> str:
   </div>
   {agenda}
 </div>
+
+{grafico}
 
 <div class="leitura">
   <div class="sub-card">
@@ -543,6 +559,7 @@ def plano_html(p: Plano | None) -> str:
 PLANO_CSS = """
   /* --- Plano do dia --- */
   .plano .sub-card { margin-bottom:14px; }
+  .plano .candles .lyr-fvg { display:none; }   /* FVG polui o quadro geral; fica na aba SMC */
   .pl-topo { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,2fr); gap:14px; }
   @media (max-width:900px) { .pl-topo { grid-template-columns:1fr; } }
   .pl-vies { border-top:4px solid var(--flat); }
