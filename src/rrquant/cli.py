@@ -13,7 +13,7 @@ import webbrowser
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from . import analyze, collect, macro as macro_mod, report, smc as smc_mod
+from . import analyze, collect, macro as macro_mod, plano as plano_mod, report, smc as smc_mod
 
 # O pacote pode estar instalado fora do repositorio (como no GitHub Actions).
 # A saida pertence ao projeto de onde o comando foi executado.
@@ -64,6 +64,8 @@ def main(argv: list[str] | None = None) -> int:
     smc_4h = smc_mod.analisar("^BVSP", "Ibovespa", collect.resample_ohlc(ohlc_15m, "4h"),
                               timeframe="4 horas", forca=2, n_render=80)
     dec = smc_mod.decisao(smc_htf, smc_ltf)
+    plano = plano_mod.montar(ohlc_ibov, {c.ticker: c for c in cotacoes}, analise.placar,
+                             dec, smc_1h, smc_15m)
 
     datas = sorted({c.data for c in cotacoes if c.data})
     data_dados = datas[-1] if datas else None
@@ -73,7 +75,7 @@ def main(argv: list[str] | None = None) -> int:
 
     html = report.gerar_html(blocos, analise, gerado_em=gerado_em, data_dados=data_dados,
                              smc=smc_ltf, smc_htf=smc_htf, smc_4h=smc_4h,
-                             smc_1h=smc_1h, smc_15m=smc_15m, dec=dec)
+                             smc_1h=smc_1h, smc_15m=smc_15m, dec=dec, plano=plano)
     SAIDA.parent.mkdir(parents=True, exist_ok=True)
     SAIDA.write_text(html, encoding="utf-8")
 

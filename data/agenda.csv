@@ -1,0 +1,20 @@
+data;hora_brt;evento
+# Agenda de eventos que pedem cuidado (docs/meu-operacional.md, seção 2). Editar à mão.
+# hora_brt vazia = horário a confirmar. O payroll (1ª sexta do mês) entra sozinho, por regra.
+# Fontes: calendário do Copom 2026 publicado pelo BCB e calendário do FOMC 2026 do Federal Reserve.
+2026-01-28;18:30;Copom: decisão da Selic (após o fechamento)
+2026-03-18;18:30;Copom: decisão da Selic (após o fechamento)
+2026-04-29;18:30;Copom: decisão da Selic (após o fechamento)
+2026-06-17;18:30;Copom: decisão da Selic (após o fechamento)
+2026-08-05;18:30;Copom: decisão da Selic (após o fechamento)
+2026-09-16;18:30;Copom: decisão da Selic (após o fechamento)
+2026-11-04;18:30;Copom: decisão da Selic (após o fechamento)
+2026-12-09;18:30;Copom: decisão da Selic (após o fechamento)
+2026-01-28;16:00;FOMC: decisão dos juros nos EUA
+2026-03-18;15:00;FOMC: decisão dos juros nos EUA
+2026-04-29;15:00;FOMC: decisão dos juros nos EUA
+2026-06-17;15:00;FOMC: decisão dos juros nos EUA
+2026-07-29;15:00;FOMC: decisão dos juros nos EUA
+2026-09-16;15:00;FOMC: decisão dos juros nos EUA
+2026-10-28;15:00;FOMC: decisão dos juros nos EUA
+2026-12-09;16:00;FOMC: decisão dos juros nos EUA

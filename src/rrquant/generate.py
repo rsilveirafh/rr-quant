@@ -6,7 +6,7 @@ import datetime as dt
 from dataclasses import dataclass
 from zoneinfo import ZoneInfo
 
-from . import analyze, collect, macro as macro_mod, report, smc as smc_mod
+from . import analyze, collect, macro as macro_mod, plano as plano_mod, report, smc as smc_mod
 
 
 @dataclass
@@ -37,6 +37,8 @@ def gerar_dashboard(periodo: str = "7d", forca: int = 4) -> DashboardGerado:
     smc_4h = smc_mod.analisar("^BVSP", "Ibovespa", collect.resample_ohlc(ohlc_15m, "4h"),
                               timeframe="4 horas", forca=2, n_render=80)
     dec = smc_mod.decisao(smc_htf, smc_ltf)
+    plano = plano_mod.montar(ohlc_ibov, {c.ticker: c for c in cotacoes}, analise.placar,
+                             dec, smc_1h, smc_15m)
 
     datas = sorted({c.data for c in cotacoes if c.data})
     market_date = datas[-1] if datas else None
@@ -46,5 +48,5 @@ def gerar_dashboard(periodo: str = "7d", forca: int = 4) -> DashboardGerado:
     html = report.gerar_html(blocos, analise, gerado_em=generated_at,
                              data_dados=market_date, smc=smc_ltf,
                              smc_htf=smc_htf, smc_4h=smc_4h, smc_1h=smc_1h,
-                             smc_15m=smc_15m, dec=dec)
+                             smc_15m=smc_15m, dec=dec, plano=plano)
     return DashboardGerado(html=html, market_date=market_date, generated_at=generated_at)

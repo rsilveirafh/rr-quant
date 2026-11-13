@@ -13,6 +13,7 @@ from .collect import Cotacao
 from .analyze import Analise
 from .tickers import INVERSOS
 from . import porques, charts
+from .plano import PLANO_CSS, plano_html
 
 
 def _fmt_preco(v: float | None) -> str:
@@ -495,7 +496,7 @@ def _smc_html(smc, smc_htf=None, smc_4h=None, smc_1h=None, smc_15m=None, dec=Non
 
 def gerar_html(blocos: dict[str, list[Cotacao]], analise: Analise,
                gerado_em: str, data_dados: str | None, smc=None, smc_htf=None,
-               smc_4h=None, smc_1h=None, smc_15m=None, dec=None) -> str:
+               smc_4h=None, smc_1h=None, smc_15m=None, dec=None, plano=None) -> str:
     idx = {c.ticker: c for cs in blocos.values() for c in cs}
     secoes = "\n".join(_bloco_html(nome, cs, i) for i, (nome, cs) in enumerate(blocos.items()))
     todos = list(idx.values())
@@ -533,7 +534,7 @@ def gerar_html(blocos: dict[str, list[Cotacao]], analise: Analise,
   * {{ box-sizing:border-box; }}
   body {{ margin:0; background:var(--bg); color:var(--ink);
     font:15px/1.45 -apple-system,Segoe UI,Roboto,sans-serif; padding:22px 28px; }}
-  header, .tabbar, .kpis, .analise, .leitura, .grid, .metodo, .smc, footer {{ max-width:min(1600px, 96vw); margin-left:auto; margin-right:auto; }}
+  header, .tabbar, .kpis, .analise, .leitura, .grid, .metodo, .smc, .plano, footer {{ max-width:min(1600px, 96vw); margin-left:auto; margin-right:auto; }}
   header {{ margin-bottom:18px; display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; }}
   h1 {{ font-size:22px; margin:0 0 4px; letter-spacing:.3px;
     background:linear-gradient(90deg,var(--b0),var(--b2),var(--b5));
@@ -728,6 +729,7 @@ def gerar_html(blocos: dict[str, list[Cotacao]], analise: Analise,
   tr.na td {{ opacity:.5; }}
   .inv {{ color:var(--dim); cursor:help; }}
   footer {{ margin-top:22px; color:var(--dim); font-size:12px; }}
+{PLANO_CSS}
 </style>
 </head>
 <body>
@@ -739,11 +741,13 @@ def gerar_html(blocos: dict[str, list[Cotacao]], analise: Analise,
   <button id="cbtoggle" onclick="toggleCB()" aria-pressed="false">♿ Modo daltônico</button>
 </header>
 <nav class="tabbar">
-  <button class="tabbtn active" data-tab="dash" onclick="showTab('dash')">📊 Dashboard</button>
+  <button class="tabbtn active" data-tab="plano" onclick="showTab('plano')">🎯 Plano do dia</button>
+  <button class="tabbtn" data-tab="dash" onclick="showTab('dash')">📊 Mercado</button>
   <button class="tabbtn" data-tab="smc" onclick="showTab('smc')">📈 SMC</button>
   <button class="tabbtn" data-tab="metodo" onclick="showTab('metodo')">📖 Metodologia</button>
 </nav>
-<section class="tab" id="tab-dash">
+{plano_html(plano)}
+<section class="tab" id="tab-dash" hidden>
 {_kpis_html(idx, analise)}
 {_analise_placar_html(analise)}
 {_leitura_html(analise)}

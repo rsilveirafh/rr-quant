@@ -19,6 +19,16 @@ Roda com dados de fechamento, sem tempo real e sem chave de API paga.
 
 **Camada macro.** Inflação e juros por API pública sem chave: FRED para CPI, núcleo, PPI, desemprego e Fed funds, e o SGS do Banco Central para Selic, CDI, IPCA e IPCA-15. Calcula o juro real e fecha o elo entre inflação e juros da cadeia de correlação.
 
+**Plano do dia.** A primeira aba aplica o meu operacional (`docs/meu-operacional.md`) à manhã do pregão:
+
+- agenda de eventos (Copom, FOMC e payroll; o resto entra à mão em `data/agenda.csv`);
+- viés da manhã por contagem de sinais macro, rotulado como regra ainda não testada;
+- mapa de liquidez com PDH/PDL, PWH/PWL, PMH/PML e topos e fundos nivelados do 1h e do 15 min, com a distância em pontos e em R;
+- order blocks e FVGs em aberto mais próximos;
+- checklist do setup central, quando não operar e a conta de risco por contrato.
+
+Os níveis são do Ibovespa à vista, porque o WIN não tem fonte pública gratuita. O preço absoluto não bate com o futuro, mas a distância em pontos sim.
+
 **Placar do Ibovespa.** Estimativa da probabilidade de o índice fechar em alta no próximo pregão, por regressão logística sobre as variáveis que antecedem a abertura: Ásia e Europa do dia, fechamento da véspera em Nova York e DXY, todas defasadas para não usar informação que ainda não existia no momento da decisão.
 
 A acurácia reportada é fora da amostra, com corte cronológico, e hoje fica perto de 54%. O ganho sobre a taxa-base é pequeno. O número aparece com essa ressalva no próprio dashboard.
@@ -46,6 +56,8 @@ rr-quant/
 │   ├── analyze.py     regime, correlações, probabilidades, placar
 │   ├── macro.py       FRED e BCB SGS
 │   ├── porques.py     base conceitual do "por que isso importa"
+│   ├── smc.py         estrutura, order blocks, FVG e liquidez
+│   ├── plano.py       plano do dia (níveis, viés, checklist)
 │   ├── charts.py      gráficos SVG inline
 │   ├── report.py      montagem do HTML
 │   └── cli.py         entrada
