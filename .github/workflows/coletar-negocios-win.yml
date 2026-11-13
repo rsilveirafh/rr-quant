@@ -27,7 +27,7 @@ jobs:
           python-version: "3.12"
 
       - name: Instalar dependências
-        run: python -m pip install .
+        run: python -m pip install -e .
 
       - name: Baixar os pregões que faltam (a B3 guarda cerca de um mês)
         run: python -m rrquant.b3negocios --dias 35
