@@ -31,6 +31,8 @@ jobs:
 
       - name: Baixar os pregões que faltam (a B3 guarda cerca de um mês)
         run: python -m rrquant.b3negocios --dias 35
+        env:
+          PYTHONUNBUFFERED: "1"
 
       - name: Versionar barras de 1 min
         run: |

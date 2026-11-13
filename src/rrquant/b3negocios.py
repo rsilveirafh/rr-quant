@@ -146,7 +146,11 @@ def gravar(barras: pd.DataFrame) -> None:
 
 def coletar(dias: int = 35, hoje: dt.date | None = None) -> list[tuple[dt.date, str, int]]:
     """Baixa os dias úteis da janela que ainda não estão guardados. Devolve o que entrou."""
-    hoje = hoje or dt.date.today()
+    # O dia corrente só entra depois do fechamento (horário de Brasília): durante o pregão a
+    # B3 já serve o arquivo parcial, e um dia gravado pela metade nunca mais seria baixado.
+    if hoje is None:
+        agora = dt.datetime.now(dt.timezone(dt.timedelta(hours=-3)))
+        hoje = agora.date() if agora.hour >= 20 else agora.date() - dt.timedelta(days=1)
     feitos = dias_guardados()
     novos = []
     for k in range(dias, -1, -1):
